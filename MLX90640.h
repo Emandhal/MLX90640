@@ -1271,24 +1271,48 @@ eERRORRESULT MLX90640_GetFrameData(MLX90640 *pComp, MLX90640_FrameData* frameDat
 
 
 
-// Configure the I2C on the MLX90640 device
-//=============================================================================
+/*! @brief Configure the I2C on the MLX90640 device
+ *
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in] i2c_FMp_Enable Indicate if the FM+ mode of the device should be activated
+ * @param[in] setThresholdTo1V8 Set the I2C threshold of the device. 'true' to set to 1.8V, 'false' to set to Vdd
+ * @param[in] setSDAdriverCurrentLimit Indicate if the device should limit its current on SDA pin
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2c_FMp_Enable, bool setThresholdTo1V8, bool setSDAdriverCurrentLimit);
 
-// Configure the MLX90640 device
-//=============================================================================
+
+/*! @brief Configure the MLX90640 device
+ *
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in] SubpageMode Set the subpage mode
+ * @param[in] RefreshRate Set the refresh rate of the frame
+ * @param[in] ReadingPattern Set the reading pattern of the subpages
+ * @param[in] ADCresolution Set the ADC resolution of Vdd
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT MLX90640_ConfigureDevice(MLX90640 *pComp, eMLX90640_SubpageMode SubpageMode, eMLX90640_RefreshRate RefreshRate, eMLX90640_ReadingPattern ReadingPattern, eMLX90640_ADCresolution ADCresolution);
 
-// Change the I2C address of the MLX90640 device
-//=============================================================================
+
+/*! @brief Change the I2C address of the MLX90640 device
+ *
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in] newAddress Is the new I2C address to set. The value shall be > 0x00 and < 0x7F
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT MLX90640_ChangeI2Caddress(MLX90640 *pComp, uint8_t newAddress);
 
 //********************************************************************************************************************
 
 
 
-// Extract parameters on the MLX90640 device
-//=============================================================================
+/*! @brief Extract parameters on the MLX90640 device
+ *
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in,out] *eepromDump Is where the EEPROM dump will be stored if extracted or the EEPROM dump to use for parameters extraction
+ * @param[in] dumpEEPROM Indicate if the EEPROM shall be extracted and stored in *eepromDump
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT MLX90640_ExtractDeviceParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump, bool dumpEEPROM);
 
 //********************************************************************************************************************

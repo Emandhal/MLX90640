@@ -21,7 +21,7 @@ This driver has been designed to:
 ## Limitations
 
 To use this driver and device, you need:
-* At least 20k of RAM. The driver itself needs 1664byte for EEPROM, 106+10704bytes for parameters and 1666bytes for the image frame
+* At least 20k of RAM. The driver itself needs 1664byte for EEPROM, 106+10704bytes for parameters, 1666bytes for the data frame, and 3080 for the frame result
 * An FPU on the CPU else the driver will be very slow and only slow refresh speed can be achieved
 
 # Usage
