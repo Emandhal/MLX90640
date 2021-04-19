@@ -11,6 +11,7 @@
 //-----------------------------------------------------------------------------
 #include <stdint.h>
 #include "conf_board.h"
+#include "Conf_Console.h"
 #include "Console.h"
 #include "ErrorsDef.h"
 #include "Interface/Console_V71Interface.h"
@@ -75,6 +76,7 @@ typedef enum
   SHOWEE,
   SAVEEE,
   SHOWPARAMS,
+  SHOWFRAME,
 } eConsoleCommand;
 
 //-----------------------------------------------------------------------------

@@ -63,7 +63,7 @@ extern "C" {
 
 
 //! Define the console transmission buffer size, must be determined according to the max length of a string and the UART speed
-#define CONSOLE_TX_BUFFER_SIZE  200
+#define CONSOLE_TX_BUFFER_SIZE  6000
 
 //! The actual console transmission buffer
 char ConsoleTxBuffer[CONSOLE_TX_BUFFER_SIZE];

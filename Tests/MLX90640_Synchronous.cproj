@@ -664,6 +664,12 @@
       <SubType>compile</SubType>
       <Link>src\Drivers\MLX90640.h</Link>
     </Compile>
+    <Compile Include="src\ANSIEscape_Lib.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\ANSIEscape_Lib.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\config\Conf_MLX90640.h">
       <SubType>compile</SubType>
     </Compile>

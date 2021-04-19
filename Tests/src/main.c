@@ -21,6 +21,7 @@
 #include "DriversParams.h"
 #include "StringTools.h"
 #include "I2C_V71InterfaceSync.h"
+#include "ANSIEscape_Lib.h"
 //-----------------------------------------------------------------------------
 
 
@@ -164,6 +165,59 @@ static void IrCAM_ShowParams(MLX90640_Parameters* pIrCAM_Params)
 
 
 //=============================================================================
+// Dump the EEPROM memory
+//=============================================================================
+static const unsigned int ASCIIgradientColors[] =
+{
+  FOREGROUND_BLUE     , // Min color
+  FOREGROUND_HI_BLUE  ,
+  FOREGROUND_CYAN     ,
+  FOREGROUND_HI_CYAN  ,
+  FOREGROUND_YELLOW   ,
+  FOREGROUND_HI_YELLOW,
+  FOREGROUND_RED      ,
+  FOREGROUND_HI_RED   , // Max color
+};
+#define ASCII_GRADIENT_COLOR_COUNT  ( sizeof(ASCIIgradientColors) / sizeof(ASCIIgradientColors[0]) )
+
+static void IrCAM_ShowFrame(MLX90640_FrameTo* pIrCAM_Frame)
+{
+  unsigned int LastColor = FOREGROUND_BLACK;
+  //--- Init color gradient threshold ---
+  float MinVal = (pIrCAM_Frame->MinToSubpage[0] < pIrCAM_Frame->MinToSubpage[1] ? pIrCAM_Frame->MinToSubpage[0] : pIrCAM_Frame->MinToSubpage[1]);
+  float MaxVal = (pIrCAM_Frame->MaxToSubpage[0] < pIrCAM_Frame->MaxToSubpage[1] ? pIrCAM_Frame->MaxToSubpage[0] : pIrCAM_Frame->MaxToSubpage[1]);
+  float MinMaxDiff = MaxVal - MinVal;
+  float ASCIIthreshold[ASCII_GRADIENT_COLOR_COUNT];
+  for (size_t z = 0; z < ASCII_GRADIENT_COLOR_COUNT; ++z) ASCIIthreshold[z] = MinVal + (((float)(z + 1) / (float)ASCII_GRADIENT_COLOR_COUNT) * MinMaxDiff);
+
+  //--- Show frame in colored ASCII ---
+  for (size_t y = 0; y < MLX90640_ROW_COUNT; ++y)
+  {
+    for (size_t x = 0; x < MLX90640_COL_COUNT; ++x)
+    {
+      //--- Choose the color ---
+      for (size_t zColor = 0; zColor < ASCII_GRADIENT_COLOR_COUNT; ++zColor)
+        if ((pIrCAM_Frame->PixelYX[y][x] < ASCIIthreshold[zColor]) || (zColor == (ASCII_GRADIENT_COLOR_COUNT - 1)))
+        {
+          if (LastColor != ASCIIgradientColors[zColor])
+          {
+            ANSIESC_SetGraphicMode(CONSOLE_TX, 1, ASCIIgradientColors[zColor]);
+            LastColor = ASCIIgradientColors[zColor];
+          }
+          SetStrToConsoleBuffer(CONSOLE_TX, "лл"); // 2 consecutive char fully filled
+          break;
+        }
+    }
+    //--- Add new line ---
+    ANSIESC_SetGraphicMode(CONSOLE_TX, 1, TEXT_ATTR_ALL_OFF); // Reset graphic mode
+    SetStrToConsoleBuffer(CONSOLE_TX, "\r\n");                // New line
+    LastColor = FOREGROUND_BLACK;
+  }  
+}
+
+
+
+//=============================================================================
 // Show the current error
 //=============================================================================
 void ShowError(eERRORRESULT error)
@@ -209,6 +263,7 @@ static void ProcessCommand(void)
   if (strncmp(pBuf, "showee"    ,  6) == 0) ConsoleCmd = SHOWEE;     // "*ShowEE" command
   if (strncmp(pBuf, "saveee"    ,  6) == 0) ConsoleCmd = SAVEEE;     // "*SaveEE" command
   if (strncmp(pBuf, "showparams", 10) == 0) ConsoleCmd = SHOWPARAMS; // "*ShowParams" command
+  if (strncmp(pBuf, "showframe" ,  9) == 0) ConsoleCmd = SHOWFRAME;  // "*ShowFrame" command
 
   if (ConsoleCmd == NO_COMMAND) return;
   SetStrToConsoleBuffer(CONSOLE_TX, "\r\n");
@@ -250,6 +305,9 @@ static void ProcessCommand(void)
       break;
     case SHOWPARAMS:
       IrCAM_ShowParams(&IrCAM_Params);
+      break;
+    case SHOWFRAME:
+      IrCAM_ShowFrame(&IrFrame);
       break;
 
     case NO_COMMAND:
@@ -399,6 +457,7 @@ int main (void)
     LOGINFO("  *RecallEE  : Recall the EEPROM from 47L16 EERAM");
     LOGINFO("  *SaveEE    : Save the EEPROM to the 47L16 EERAM");
   }
+  LOGINFO("  *ShowFrame : Show the last performed frame");
 
   //=== The main loop ===================================
   while(1)
@@ -412,25 +471,23 @@ int main (void)
     //--- Frame available ? ---
     if (MLX90640_IsFrameAvailable(IrCAM))
     {
-      //--- Get subframe frame data ---
-      Error = MLX90640_GetFrameData(IrCAM, &IrCAM_Frame);
-      if (Error == ERR_OK)
+      do 
       {
+        //--- Get subframe frame data ---
+        Error = MLX90640_GetFrameData(IrCAM, &IrCAM_Frame);
+        if (Error != ERR_OK) break;
+
         EXT2_PWM_Low;
         //--- Calculate the subframe To
         Error = MLX90640_CalculateTo(IrCAM, &IrCAM_Frame, 1.0f, Tr, &IrFrame);
-        if (Error == ERR_OK)
-        {
-          Tr = IrFrame.Ta - 8.0f; // Calculate next Tr: Tr = Ta - 8А
-          
-          // Show the frame <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-          
-          
-        } else ShowError(Error);
-        EXT2_PWM_High;
-      } else ShowError(Error);
+        if (Error != ERR_OK) break;
+        Error = MLX90640_CorrectBadPixels(IrCAM, &IrFrame);
+        if (Error != ERR_OK) break;
+        Tr = IrFrame.Ta - 8.0f; // Calculate next Tr: Tr = Ta - 8А
+      } while (Error != ERR_OK);
+      EXT2_PWM_High;
+      if (Error != ERR_OK) ShowError(Error);
     }
-
     nop();
   }
 }

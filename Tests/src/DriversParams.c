@@ -241,9 +241,9 @@ struct MLX90640 MLX90640_V71 =
 MLX90640_Config IrCAM_Config =
 {
   //--- Subpage configuration ---
-  .SubpageMode    = MLX90640_MEASURE_ONLY_SUBPAGE0,
-  .RefreshRate    = MLX90640_IR_REFRESH_RATE_0Hz5,
-  .ReadingPattern = MLX90640_READING_INTERLEAVE_MODE,
+  .SubpageMode    = MLX90640_MEASURE_ALTERNATE_SUBPAGES,
+  .RefreshRate    = MLX90640_IR_REFRESH_RATE_16Hz,
+  .ReadingPattern = MLX90640_READING_CHESS_PATTERN_MODE,
   .ADCresolution  = MLX90640_ADC_RESOLUTION_18bits,
   //--- I2C configuration ---
   .I2C_FMp_Enable           = false,
