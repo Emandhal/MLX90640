@@ -656,14 +656,6 @@
     <Folder Include="src\Interface" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\Utils\StringTools.c">
-      <SubType>compile</SubType>
-      <Link>src\StringTools.c</Link>
-    </Compile>
-    <Compile Include="..\..\..\Utils\StringTools.h">
-      <SubType>compile</SubType>
-      <Link>src\StringTools.h</Link>
-    </Compile>
     <Compile Include="..\MLX90640.c">
       <SubType>compile</SubType>
       <Link>src\Drivers\MLX90640.c</Link>
@@ -679,6 +671,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\DriversParams.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\StringTools.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\StringTools.h">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\ASF\common\services\delay\delay.h">
