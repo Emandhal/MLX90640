@@ -32,6 +32,7 @@
  *****************************************************************************/
 
 /* Revision history:
+ * 1.0.2    Correct resolution error in delta Vdd calculus
  * 1.0.1    Add minimum and maximum value of To for each subframe in MLX90640_FrameTo
  * 1.0.0    Release version
  *****************************************************************************/
@@ -122,7 +123,7 @@ extern "C" {
 //-----------------------------------------------------------------------------
 
 #define MLX90640_VddV0  (  3.3f ) //!< Vdd_V0 is +3.3V
-#define MLX90640_TaV0   ( 25.0f ) //!< Ta_V0 is +25°
+#define MLX90640_TaV0   ( 25.0f ) //!< Ta_V0 is +25ï¿½
 
 //-----------------------------------------------------------------------------
 
@@ -297,8 +298,8 @@ typedef enum
 //! Reading pattern enum
 typedef enum
 {
-  MLX90640_READING_INTERLEAVE_MODE = 0b0, //!< Reading in Interleaved (TV) mode
-  MLX90640_READING_CHESS_PATTERN   = 0b1, //!< Reading in Chess pattern (default)
+  MLX90640_READING_INTERLEAVE_MODE    = 0b0, //!< Reading in Interleaved (TV) mode
+  MLX90640_READING_CHESS_PATTERN_MODE = 0b1, //!< Reading in Chess pattern (default)
 } eMLX90640_ReadingPattern;
 
 #define MLX90640_READING_PATTERN_Pos         12
@@ -382,8 +383,8 @@ ControlItemSize(MLX90640_I2Caddress, 2);
 //! List of supported devices
 typedef enum
 {
-  MLX90640BAA,            //!< MLX90640BAA - FOV = 110°x75°
-  MLX90640BAB,            //!< MLX90640BAB - FOV = 55°x35°
+  MLX90640BAA,            //!< MLX90640BAA - FOV = 110ï¿½x75ï¿½
+  MLX90640BAB,            //!< MLX90640BAB - FOV = 55ï¿½x35ï¿½
   eMLX90640_DEVICE_COUNT, // Device count of this enum, keep last
 } eMLX90640_Devices;
 
@@ -738,7 +739,7 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 
 
 // Temperature Gradient Coefficient & KsTa Register (EEPROM: 0x243C)
-#define MLX90640_TGC_GET(value)   MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get Temperature Gradient Coefficient (±4)*2^7
+#define MLX90640_TGC_GET(value)   MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get Temperature Gradient Coefficient (ï¿½4)*2^7
 #define MLX90640_KsTa_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTa*2^13
 
 //-----------------------------------------------------------------------------
@@ -748,9 +749,9 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 #define MLX90640_KsTo1  ( 0 )
 #define MLX90640_KsTo2  ( 1 )
 
-// KsTo range 1 (<0°C) & range 2 (0°C..CT1°C) Register (EEPROM: 0x243D)
-#define MLX90640_KsTo_CT_RANGE_1_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 1 (<0°C)
-#define MLX90640_KsTo_CT_RANGE_2_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 2 (0°C..CT1°C)
+// KsTo range 1 (<0ï¿½C) & range 2 (0ï¿½C..CT1ï¿½C) Register (EEPROM: 0x243D)
+#define MLX90640_KsTo_CT_RANGE_1_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 1 (<0ï¿½C)
+#define MLX90640_KsTo_CT_RANGE_2_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 2 (0ï¿½C..CT1ï¿½C)
 
 //-----------------------------------------------------------------------------
 
@@ -759,9 +760,9 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 #define MLX90640_KsTo3  ( 2 )
 #define MLX90640_KsTo4  ( 3 )
 
-// KsTo range 3 (CT1°C..CT2°C) & range 4 (CT2°C..) Register (EEPROM: 0x243E)
-#define MLX90640_KsTo_CT_RANGE_3_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 3 (CT1°C..CT2°C)
-#define MLX90640_KsTo_CT_RANGE_4_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 4 (CT2°C..)
+// KsTo range 3 (CT1ï¿½C..CT2ï¿½C) & range 4 (CT2ï¿½C..) Register (EEPROM: 0x243E)
+#define MLX90640_KsTo_CT_RANGE_3_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 3 (CT1ï¿½C..CT2ï¿½C)
+#define MLX90640_KsTo_CT_RANGE_4_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 4 (CT2ï¿½C..)
 
 //-----------------------------------------------------------------------------
 
@@ -888,9 +889,9 @@ typedef union __PACKED__ MLX90640_EEPROM
     MLX90640_AlphaCP Alpha_CP;   //!< (Offset16: 0x39) Alpha Compensation Pixel subpage
     MLX90640_OffsetCP Offset_CP; //!< (Offset16: 0x3A) Offset Compensation Pixel subpage
     uint16_t K_CP;               //!< (Offset16: 0x3B) Kta Compensation Pixel & Kv Compensation Pixel
-    uint16_t TGC_KsTa;           //!< (Offset16: 0x3C) Temperature Gradient Coefficient (±4)*2^7 & KsTa*2^13
-    uint16_t KsTo_Range1_2;      //!< (Offset16: 0x3D) KsTo range 1 (<0°C) & KsTo range 2 (0°C..CT1°C)
-    uint16_t KsTo_Range3_4;      //!< (Offset16: 0x3E) KsTo range 3 (CT1°C..CT2°C) & range 4 (CT2°C..)
+    uint16_t TGC_KsTa;           //!< (Offset16: 0x3C) Temperature Gradient Coefficient (ï¿½4)*2^7 & KsTa*2^13
+    uint16_t KsTo_Range1_2;      //!< (Offset16: 0x3D) KsTo range 1 (<0ï¿½C) & KsTo range 2 (0ï¿½C..CT1ï¿½C)
+    uint16_t KsTo_Range3_4;      //!< (Offset16: 0x3E) KsTo range 3 (CT1ï¿½C..CT2ï¿½C) & range 4 (CT2ï¿½C..)
     MLX90640_CTtemp CT_Temp;     //!< (Offset16: 0x3F) CT and Temp
     union
     {
@@ -1268,7 +1269,7 @@ eERRORRESULT MLX90640_DumpEEPROM(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
 /*! @brief Get the last frame data on the MLX90640 device
  *
  * This function reads the entire address range of the internal RAM of the MLX90640 device
- * Took around 40ms to dump the EEPROM from the MLX90640 device with SCL@400kHz
+ * Took around 40ms to read the RAM from the MLX90640 device with SCL@400kHz
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[out] *frameData Is where the frame data will be stored
  * @return Returns an #eERRORRESULT value enum
@@ -1343,7 +1344,7 @@ eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData
 
 /*! @brief Correct bad pixels in a frame on the MLX90640 device
  *
- * This function the defective pixel value by replacing its value by an interpolation of its neighboring pixels (See §9 of datasheet), here it is a mean of the neighboring pixels (X-1, X+1, Y-1, and Y+1, when available)
+ * This function the defective pixel value by replacing its value by an interpolation of its neighboring pixels (See ï¿½9 of datasheet), here it is a mean of the neighboring pixels (X-1, X+1, Y-1, and Y+1, when available)
  * This function change only defective pixels, others will no be touched
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in,out] *result Is where the result will be stored

@@ -60,6 +60,9 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
 #endif
   eERRORRESULT Error;
 
+  //--- Initialize internal config ---
+  pComp->InternalConfig = MLX90640_DEV_NOT_PARAMETERIZED | MLX90640_DetectByteOrder();
+
   //--- Check and adjust I2C SCL speed ---
   if (pComp->I2C_ClockSpeed > MLX90640_I2CCLOCK_FMp_MAX) return ERR__I2C_FREQUENCY_ERROR;                // Desired I2C SCL frequency too high for the device
   uint32_t SCLfreq = pComp->I2C_ClockSpeed;
@@ -83,12 +86,7 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
   }
 
   //--- Configure the device ---
-  Error = MLX90640_ConfigureDevice(pComp, pConf->SubpageMode, pConf->RefreshRate, pConf->ReadingPattern, pConf->ADCresolution);
-  if (Error != ERR_OK) return Error;                                          // If there is an error while calling MLX90640_ConfigureDevice() then return the Error
-
-  //--- Initialize internal config ---
-  pComp->InternalConfig = MLX90640_DEV_NOT_PARAMETERIZED | MLX90640_DetectByteOrder();
-  return ERR_OK;
+  return MLX90640_ConfigureDevice(pComp, pConf->SubpageMode, pConf->RefreshRate, pConf->ReadingPattern, pConf->ADCresolution);
 }
 
 
@@ -1044,8 +1042,8 @@ static eERRORRESULT __MLX90640_GetVddAndTa(MLX90640 *pComp, MLX90640_FrameData* 
 
   //--- Calculate Vdd ---
   uint16_t ResRAM = MLX90640_ADC_RESOLUTION_GET(pComp->InternalConfig);
-  float ResCorrection = ((float)(1 << pParams->Resolution)) / ((float)(1 << ResRAM));                                          // See §11.2.2.1
-  *deltaVdd3V3Frame = (float)((ResCorrection * (float)frameData->VddPix) - (float)pParams->Vdd_25) / ((float)pParams->Kv_Vdd); // See §11.2.2.2, the 3.3V will not be add here because all calculus that use this works on the delta Vdd3.3
+  float ResCorrection = ((float)(1 << pParams->Resolution)) / ((float)(1 << ResRAM));                                   // See §11.2.2.1
+  *deltaVdd3V3Frame = ((ResCorrection * (float)frameData->VddPix) - (float)pParams->Vdd_25) / ((float)pParams->Kv_Vdd); // See §11.2.2.2, the 3.3V will not be add here because all calculus that use this works on the delta Vdd3.3
 
   //--- Calculate Ta ---
   float VtaPTAT = (float)frameData->VtaPTAT;
