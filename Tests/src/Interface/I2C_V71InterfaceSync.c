@@ -53,6 +53,17 @@ eERRORRESULT SoftI2C_InterfaceInit_V71(void *pIntDev, const uint32_t sclFreq)
   SCL0_SOFT_High;   // SCL = 1
   SCL0_SOFT_Out;    // SCL out
 
+  //--- Reset ---
+  size_t z = 9;                 // Clock up to 9 cycles. Here we force I2C SCL to clock until a device stuck in communication respond
+  while (SDA0_SOFT_Status == 0) // Look for SDA high in each cycle while SCL is high and then break
+  {
+		delay_us(1);
+		SCL0_SOFT_Low;  // SCL = 0
+		delay_us(1);
+		SCL0_SOFT_High; // SCL = 1
+    if (--z == 0) break;
+  }
+
   I2Cconfigured = true;
   I2CstopSent   = true;
   return ERR_OK;
@@ -238,8 +249,8 @@ eERRORRESULT SoftI2C_Tranfert_V71(void *pIntDev, const uint8_t deviceAddress, ui
     eERRORRESULT ErrorStop = SoftI2C_Stop_V71(pIntDev); // Stop I2C
     if (DeviceReady == false) return ERR__NOT_READY;
     return (Error != ERR_OK ? Error : ErrorStop);
-  }  
-  
+  }
+
   return Error;
 }
 
@@ -252,18 +263,41 @@ eERRORRESULT SoftI2C_Tranfert_V71(void *pIntDev, const uint8_t deviceAddress, ui
 eERRORRESULT HardI2C_InterfaceInit_V71(void *pIntDev, const uint32_t sclFreq)
 {
   if (pIntDev == NULL) return ERR__I2C_PARAMETER_ERROR;
+  Twihs *I2C = (Twihs *)pIntDev;
 //  if (I2Cconfigured) return ERR_OK;
+
+  //--- Reset ---
+  SDA0_SOFT_PIO_En;
+  SDA0_SOFT_High;   // SDA = 1
+  SDA0_SOFT_In;     // SDA in
+  SCL0_SOFT_PIO_En;
+  SCL0_SOFT_High;   // SCL = 1
+  SCL0_SOFT_Out;    // SCL out
+  size_t z = 9;                 // Clock up to 9 cycles. Here we force I2C SCL to clock until a device stuck in communication respond
+  while (SDA0_SOFT_Status == 0) // Look for SDA high in each cycle while SCL is high and then break
+  {
+		delay_us(1);
+		SCL0_SOFT_Low;  // SCL = 0
+		delay_us(1);
+		SCL0_SOFT_High; // SCL = 1
+    if (--z == 0) break;
+  }
+  ioport_set_pin_mode(TWIHS0_DATA_GPIO, TWIHS0_DATA_FLAGS); // Restore SDA pin function
+  ioport_disable_pin(TWIHS0_DATA_GPIO);                     // Restore SDA pin function
+  ioport_set_pin_mode(TWIHS0_CLK_GPIO, TWIHS0_CLK_FLAGS);   // Restore SCL pin function
+  ioport_disable_pin(TWIHS0_CLK_GPIO);                      // Restore SCL pin function
 
   //--- Configuration of the TWI interface ---
   twihs_options_t opt;
   opt.speed = sclFreq;
-  if (twihs_master_setup(BOARD_AT24MAC_TWIHS, &opt) != TWIHS_SUCCESS) return ERR__I2C_CONFIG_ERROR;
+  if (twihs_master_setup(I2C, &opt) != TWIHS_SUCCESS) return ERR__I2C_CONFIG_ERROR;
+  I2C->TWIHS_CR |= TWIHS_CR_STOP;
 
   //--- Clear receive buffer ---
-  uint8_t Data = BOARD_AT24MAC_TWIHS_INSTANCE->TWIHS_RHR;
+  uint8_t Data = I2C->TWIHS_RHR;
   (void)Data; // Unused data
   //--- clear registers ---
-  Data = BOARD_AT24MAC_TWIHS_INSTANCE->TWIHS_SR;
+  Data = I2C->TWIHS_SR;
   (void)Data; // Unused data
 
   I2Cconfigured = true;
