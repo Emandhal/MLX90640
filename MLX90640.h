@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file    MLX90640.h
- * @author  FMA
- * @version 1.0.0
+ * @author  Fabien 'Emandhal' MAILLY
+ * @version 1.0.1
  * @date    27/02/2021
  * @brief   MLX90640 driver
  *
@@ -29,6 +29,11 @@
  * OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
+ *****************************************************************************/
+
+/* Revision history:
+ * 1.0.1    Add minimum and maximum value of To for each subframe in MLX90640_FrameTo
+ * 1.0.0    Release version
  *****************************************************************************/
 #ifndef MLX90640_H_INC
 #define MLX90640_H_INC
@@ -84,7 +89,7 @@ extern "C" {
 
 //-----------------------------------------------------------------------------
 
-//! If the moving average filter is not defined, define it with a value that disable it 
+//! If the moving average filter is not defined, define it with a value that disable it
 #ifndef MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT
 #  define MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT  ( 0 )
 #endif
@@ -939,7 +944,7 @@ typedef struct MLX90640_Parameters
   int16_t CT[4];
   // Pixels defect
   MLX90640_DefectPixels DefectivePixels[MLX90640_MAX_DEFECT_PIXELS]; //!< This is the defective pixel list. The imager can have up to 4 defective pixels
-  
+
   // Pre-calculated parameters
 #ifdef MLX90640_PRECALCULATE_PIXELS_COEFFS
   union
@@ -1003,8 +1008,8 @@ typedef union __PACKED__ MLX90640_FrameData
         uint16_t Reserved5[21];
         MLX90640_Status StatusReg;            //!< (Image of 0x8000) Status register
       };
-    };    
-  };  
+    };
+  };
 } MLX90640_FrameData;
 UNPACKITEM;
 ControlItemSize(MLX90640_FrameData, 1666); // Start at address 0x0400 and finish at address 0x0740 plus 1 register => 0x340+1 => 833*2 for bytes
@@ -1021,8 +1026,11 @@ typedef struct MLX90640_FrameTo
     float Pixel[MLX90640_TOTAL_PIXELS_COUNT];              //!< To value of all 768 Pixels from pixel (1,1) to (24x32)
   };
   // Auxiliary data
-  float Vdd; //!< Vdd of the last subframe
-  float Ta;  //!< Ambient Temperature of the last subframe
+  float Vdd;             //!< Vdd of the last subframe
+  float Ta;              //!< Ambient Temperature of the last subframe
+  // Min, Max value
+  float MinToSubpage[2]; //!< Minimum To value of each subframes
+  float MaxToSubpage[2]; //!< Maximum To value of each subframes
   // Moving Average Filter
 #if (MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT > 1)
   float PixGainCPSP0_Filter[MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT]; //!< Pixels Gain_CP_SP0 Filter stored values
@@ -1111,7 +1119,7 @@ struct MLX90640
 
   //--- Time call function ---
   GetCurrentms_Func fnGetCurrentms;         //!< This function will be called when the driver need to get current millisecond
-  
+
   //--- Device EEPROM ---
 #if !defined(MLX90640_PRECALCULATE_PIXELS_COEFFS)
   MLX90640_EEPROM* EEPROM;                  //!< Device EEPROM. Need to store a dump of the device's EEPROM for further calculations

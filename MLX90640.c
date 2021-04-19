@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file    MLX90640.c
- * @author  FMA
- * @version 1.0.0
+ * @author  Fabien 'Emandhal' MAILLY
+ * @version 1.0.1
  * @date    27/02/2021
  * @brief   MLX90640 driver
  *
@@ -15,6 +15,7 @@
 /// @cond 0
 /**INDENT-OFF**/
 #include <math.h>
+#include <float.h>
 #ifdef __cplusplus
 #include <cstdint>
 extern "C" {
@@ -308,11 +309,11 @@ eERRORRESULT MLX90640_GetFrameData(MLX90640 *pComp, MLX90640_FrameData* frameDat
   //--- Read status register ---
   Error = MLX90640_ReadRegister(pComp, RegMLX90640_Status, &frameData->StatusReg.Status);
   if (Error != ERR_OK) return Error;                                            // If there is an error while calling MLX90640_ReadRegister() then return the Error
-  
+
   //--- Clear status register ---
   Error = MLX90640_WriteRegister(pComp, RegMLX90640_Status, MLX90640_CLEAR_DEVICE_STATUS);
   if (Error != ERR_OK) return Error;                                            // If there is an error while calling MLX90640_WriteRegister() then return the Error
-  
+
   //--- Check data ---
   uint8_t CurrSubPage = MLX90640_LAST_SUBPAGE_GET(frameData->StatusReg.Status); // Get current subpage, i.e. this frame data subpage
   for (int y = MLX90640_ROW_COUNT; --y >= 0;)
@@ -396,7 +397,7 @@ eERRORRESULT MLX90640_ChangeI2Caddress(MLX90640 *pComp, uint8_t newAddress)
   if ((newAddress < 0x01) || (newAddress > 0x7F)) return ERR__I2C_INVALID_ADDRESS;
   eERRORRESULT Error;
   MLX90640_I2Caddress RegI2Caddr;
-  
+
   //--- Check previous value ---
   Error = MLX90640_ReadRegister(pComp, EepMLX90640_I2Caddress, &RegI2Caddr.I2Caddress);
   if (Error != ERR_OK) return Error;                     // If there is an error while calling MLX90640_ReadRegister() then return the Error
@@ -482,7 +483,7 @@ static void __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_E
 {
   uint16_t OffsetCPsp0;
   int16_t OffsetCPdelta;
-  
+
   //--- Get values from EEPROM ---
   OffsetCPsp0   = MLX90640_OFFSET_CP_SUBPAGE_GET(eepromDump->Offset_CP.OffsetCPsubpage);
   OffsetCPdelta = MLX90640_OFFSET_CP_P1P0_DELTA_GET(eepromDump->Offset_CP.OffsetCPsubpage);
@@ -490,7 +491,7 @@ static void __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_E
   //--- Calculate and store Offset CP subpages ---
   pComp->Params->CPsubpageOffset[0] = OffsetCPsp0;                 // See §11.1.13
   pComp->Params->CPsubpageOffset[1] = OffsetCPsp0 + OffsetCPdelta; // See §11.1.13
-  
+
 #ifdef MLX90640_PRECALCULATE_PIXELS_COEFFS
   uint16_t OccScaleRem;
   uint16_t OccScaleCol;
@@ -1045,7 +1046,6 @@ static eERRORRESULT __MLX90640_GetVddAndTa(MLX90640 *pComp, MLX90640_FrameData* 
   uint16_t ResRAM = MLX90640_ADC_RESOLUTION_GET(pComp->InternalConfig);
   float ResCorrection = ((float)(1 << pParams->Resolution)) / ((float)(1 << ResRAM));                                          // See §11.2.2.1
   *deltaVdd3V3Frame = (float)((ResCorrection * (float)frameData->VddPix) - (float)pParams->Vdd_25) / ((float)pParams->Kv_Vdd); // See §11.2.2.2, the 3.3V will not be add here because all calculus that use this works on the delta Vdd3.3
-//  *vddFrame = DeltaVdd + 3.3f;                                                                                         
 
   //--- Calculate Ta ---
   float VtaPTAT = (float)frameData->VtaPTAT;
@@ -1130,6 +1130,8 @@ eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData
   AlphaCorrRange[MLX90640_KsTo4] = AlphaCorrRange[MLX90640_KsTo3] * (1.0f + (pParams->KsTo[MLX90640_KsTo4] * (pParams->CT[MLX90640_CT4] - pParams->CT[MLX90640_CT3]))); // See §11.2.2.9.1.2
 
   //--- Calculate To of all subpage's pixels ---
+  result->MinToSubpage[CurrSubPage] =  FLT_MAX;
+  result->MaxToSubpage[CurrSubPage] = -FLT_MIN;
   for (int_fast16_t zPix = MLX90640_TOTAL_PIXELS_COUNT; --zPix >= 0;)
   {
     uint8_t Pattern = 0;
@@ -1140,7 +1142,7 @@ eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData
 
     if (Pattern == CurrSubPage)                // Pixel pattern in the current subpage? Then calculate its To
     {
-      //--- Correct Ir data of the pixel ---
+      //--- Get parameters of the pixel ---
 #ifdef MLX90640_PRECALCULATE_PIXELS_COEFFS
       float Offset   = (float)pParams->Offsets[zPix];
       float Alpha    = pParams->Alphas[zPix];
@@ -1154,6 +1156,7 @@ eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData
       float KtaCoeff = __MLX90640_ExtractKtaCoeff1PixelParameter(pComp, y, x);
       float KvCoeff  = __MLX90640_ExtractKvCoeff1PixelParameter(pComp, y, x);
 #endif
+      //--- Correct Ir data of the pixel ---
       float IrPixel  = (float)frameData->Frame[zPix] * Kgain;
       IrPixel -= Offset * (1.0f + (KtaCoeff * Ta)) * (1.0f + (KvCoeff * Vdd));
       if (CurrReadingPattern != pParams->CalibrationPattern) // If the current pattern is not the same as the one used at calibration
@@ -1180,6 +1183,8 @@ eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData
       else if (ToPix < pParams->CT[MLX90640_CT4]) Range = 2;
       ToPix = (IrPixel / (AlphaComp * AlphaCorrRange[Range] * (1.0f + (pParams->KsTo[Range] * (ToPix - pParams->CT[Range]))))) + Ta_r;
       result->Pixel[zPix] = ftrtf(ToPix) - 273.15f;                         // See §11.2.2.9.1.3
+      if (result->Pixel[zPix] < result->MinToSubpage[CurrSubPage]) result->MinToSubpage[CurrSubPage] = result->Pixel[zPix]; // Set the min of the subpage
+      if (result->Pixel[zPix] > result->MaxToSubpage[CurrSubPage]) result->MaxToSubpage[CurrSubPage] = result->Pixel[zPix]; // Set the max of the subpage
     }
   }
   return ERR_OK;
