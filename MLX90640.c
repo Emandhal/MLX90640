@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file    MLX90640.c
  * @author  Fabien 'Emandhal' MAILLY
- * @version 1.0.1
+ * @version 1.0.2
  * @date    27/02/2021
  * @brief   MLX90640 driver
  *
@@ -64,25 +64,25 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
   pComp->InternalConfig = MLX90640_DEV_NOT_PARAMETERIZED | MLX90640_DetectByteOrder();
 
   //--- Check and adjust I2C SCL speed ---
-  if (pComp->I2C_ClockSpeed > MLX90640_I2CCLOCK_FMp_MAX) return ERR__I2C_FREQUENCY_ERROR;                // Desired I2C SCL frequency too high for the device
-  uint32_t SCLfreq = pComp->I2C_ClockSpeed;
-  if ((SCLfreq > MLX90640_I2CCLOCK_FM_MAX) && pConf->I2C_FMp_Enable) SCLfreq = MLX90640_I2CCLOCK_FM_MAX; // FM+ mode is wanted but the device is not yet configured for this so set the FM max frequency
-  if (SCLfreq > MLX90640_I2CCLOCK_FM_MAX) return ERR__I2C_FREQUENCY_ERROR;                               // If the SCL frequency is too high and the device will not be configured for FM+ mode then return an error
+  if (pComp->I2CclockSpeed > MLX90640_I2CCLOCK_FMp_MAX) return ERR__I2C_FREQUENCY_ERROR;                // Desired I2C SCL frequency too high for the device
+  uint32_t SCLfreq = pComp->I2CclockSpeed;
+  if ((SCLfreq > MLX90640_I2CCLOCK_FM_MAX) && pConf->I2C_FMpEnable) SCLfreq = MLX90640_I2CCLOCK_FM_MAX; // FM+ mode is wanted but the device is not yet configured for this so set the FM max frequency
+  if (SCLfreq > MLX90640_I2CCLOCK_FM_MAX) return ERR__I2C_FREQUENCY_ERROR;                              // If the SCL frequency is too high and the device will not be configured for FM+ mode then return an error
 
   //--- Initialize the interface ---
-  Error = pComp->fnI2C_Init(pComp->InterfaceDevice, SCLfreq);                 // Init the I2C with a safe SCL clock speed for configuration
-  if (Error != ERR_OK) return Error;                                          // If there is an error while calling fnI2C_Init() then return the Error
-  if (MLX90640_IsReady(pComp) == false) return ERR__NO_DEVICE_DETECTED;       // Check device presence
+  Error = pComp->fnI2C_Init(pComp->InterfaceDevice, SCLfreq);                // Init the I2C with a safe SCL clock speed for configuration
+  if (Error != ERR_OK) return Error;                                         // If there is an error while calling fnI2C_Init() then return the Error
+  if (MLX90640_IsReady(pComp) == false) return ERR__NO_DEVICE_DETECTED;      // Check device presence
 
   //--- Configure the I2C on device side ---
-  Error = MLX90640_ConfigureDeviceI2C(pComp, pConf->I2C_FMp_Enable, pConf->SetThresholdTo1V8, pConf->SetSDAdriverCurrentLimit);
-  if (Error != ERR_OK) return Error;                                          // If there is an error while calling MLX90640_ConfigureI2C() then return the Error
+  Error = MLX90640_ConfigureDeviceI2C(pComp, pConf->I2C_FMpEnable, pConf->SetThresholdTo1V8, pConf->SetSDAdriverCurrentLimit);
+  if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ConfigureI2C() then return the Error
 
   //--- Finally set the desired I2C SCL speed ---
-  if ((SCLfreq != pComp->I2C_ClockSpeed) && pConf->I2C_FMp_Enable)            // The working SCL frequency differ from the configuration frequency then
+  if ((SCLfreq != pComp->I2CclockSpeed) && pConf->I2C_FMpEnable)             // The working SCL frequency differ from the configuration frequency then
   {
-    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2C_ClockSpeed); // Re-init the I2C with the desired SCL clock speed
-    if (Error != ERR_OK) return Error;                                        // If there is an error while calling fnI2C_Init() then return the Error
+    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2CclockSpeed); // Re-init the I2C with the desired SCL clock speed
+    if (Error != ERR_OK) return Error;                                       // If there is an error while calling fnI2C_Init() then return the Error
   }
 
   //--- Configure the device ---
@@ -270,7 +270,7 @@ eERRORRESULT MLX90640_DumpEEPROM(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
   eERRORRESULT Error;
 
   //--- Limit EEPROM I2C clock ---
-  if (pComp->I2C_ClockSpeed > MLX90640_I2CCLOCK_FM_MAX)
+  if (pComp->I2CclockSpeed > MLX90640_I2CCLOCK_FM_MAX)
   {
     Error = pComp->fnI2C_Init(pComp->InterfaceDevice, MLX90640_I2CCLOCK_FM_MAX); // Init the I2C with a safe SCL clock speed for EEPROM operations
     if (Error != ERR_OK) return Error;                                           // If there is an error while calling fnI2C_Init() then return the Error
@@ -281,9 +281,9 @@ eERRORRESULT MLX90640_DumpEEPROM(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
   if (Error != ERR_OK) return Error;                                             // If there is an error while calling MLX90640_ReadData() then return the Error
 
   //--- Return to the original I2C clock ---
-  if (pComp->I2C_ClockSpeed > MLX90640_I2CCLOCK_FM_MAX)
+  if (pComp->I2CclockSpeed > MLX90640_I2CCLOCK_FM_MAX)
   {
-    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2C_ClockSpeed);    // Re-init the I2C with the desired SCL clock speed
+    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2CclockSpeed);     // Re-init the I2C with the desired SCL clock speed
   }
   return Error;
 }
@@ -340,11 +340,11 @@ eERRORRESULT MLX90640_GetFrameData(MLX90640 *pComp, MLX90640_FrameData* frameDat
 //=============================================================================
 // Configure the I2C on the MLX90640 device
 //=============================================================================
-eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2c_FMp_Enable, bool setThresholdTo1V8, bool setSDAdriverCurrentLimit)
+eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2cFMpEnable, bool setThresholdTo1V8, bool setSDAdriverCurrentLimit)
 {
   MLX90640_I2Cconfig Reg;
   Reg.I2Cconfig = MLX90640_FMp_ENABLE | MLX90640_THRESHOLD_VDD | MLX90640_SDA_CURRENT_LIMIT_ENABLE; // Default values
-  if (i2c_FMp_Enable           == false) Reg.I2Cconfig |= MLX90640_FMp_DISABLE;
+  if (i2cFMpEnable             == false) Reg.I2Cconfig |= MLX90640_FMp_DISABLE;
   if (setThresholdTo1V8                ) Reg.I2Cconfig |= MLX90640_THRESHOLD_1V8;
   if (setSDAdriverCurrentLimit == false) Reg.I2Cconfig |= MLX90640_SDA_CURRENT_LIMIT_DISABLE;
   return MLX90640_WriteRegister(pComp, RegMLX90640_I2Cconfig, Reg.I2Cconfig);
@@ -355,14 +355,14 @@ eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2c_FMp_Enable, b
 //=============================================================================
 // Configure the MLX90640 device
 //=============================================================================
-eERRORRESULT MLX90640_ConfigureDevice(MLX90640 *pComp, eMLX90640_SubpageMode SubpageMode, eMLX90640_RefreshRate RefreshRate, eMLX90640_ReadingPattern ReadingPattern, eMLX90640_ADCresolution ADCresolution)
+eERRORRESULT MLX90640_ConfigureDevice(MLX90640 *pComp, eMLX90640_SubpageMode subpageMode, eMLX90640_RefreshRate refreshRate, eMLX90640_ReadingPattern readingPattern, eMLX90640_ADCresolution adcResolution)
 {
   MLX90640_Control1 Reg;
   Reg.Control1 = MLX90640_SUBPAGE_MODE_ENABLE | MLX90640_DATA_HOLD_DISABLE | MLX90640_SUBPAGE_REPEAT_DISABLE // Default values
-               | MLX90640_IR_REFRESH_RATE_SET(RefreshRate)                                                   // Set refresh rate
-               | MLX90640_ADC_RESOLUTION_SET(ADCresolution)                                                  // Set ADC resolution
+               | MLX90640_IR_REFRESH_RATE_SET(refreshRate)                                                   // Set refresh rate
+               | MLX90640_ADC_RESOLUTION_SET(adcResolution)                                                  // Set ADC resolution
                | MLX90640_READING_INTERLEAVED;                                                               // Default value
-  switch (SubpageMode)
+  switch (subpageMode)
   {
     case MLX90640_MEASURE_ONLY_SUBPAGE0:
       Reg.Control1 |= MLX90640_SUBPAGE_REPEAT_ENABLE | MLX90640_SELECT_SUBPAGE_SET(MLX90640_SUBPAGE_0_IS_SELECTED); // Set subpage mode, enable subpage repeat and select subpage 0
@@ -375,9 +375,9 @@ eERRORRESULT MLX90640_ConfigureDevice(MLX90640 *pComp, eMLX90640_SubpageMode Sub
       break;
     default: break;
   }
-  if (ReadingPattern == MLX90640_READING_CHESS_PATTERN) Reg.Control1 |= MLX90640_READING_CHESS_PATTERN; // If ask for reading chess pattern then set reading pattern
+  if (readingPattern == MLX90640_READING_CHESS_PATTERN) Reg.Control1 |= MLX90640_READING_CHESS_PATTERN; // If ask for reading chess pattern then set reading pattern
   pComp->InternalConfig &= ~(MLX90640_READING_PATTERN_Mask | MLX90640_ADC_RESOLUTION_Mask);             // Clear the config in the internal config
-  pComp->InternalConfig |= MLX90640_READING_PATTERN_SET(ReadingPattern) | MLX90640_ADC_RESOLUTION_SET(ADCresolution); // Set the new configuration in the internal config
+  pComp->InternalConfig |= MLX90640_READING_PATTERN_SET(readingPattern) | MLX90640_ADC_RESOLUTION_SET(adcResolution); // Set the new configuration in the internal config
   return MLX90640_WriteRegister(pComp, RegMLX90640_Control1, Reg.Control1);
 }
 
@@ -846,7 +846,7 @@ static eERRORRESULT __MLX90640_ExtractDefectivePixels(MLX90640 *pComp, MLX90640_
 
 
 //=============================================================================
-// Extract parameters on the MLX90640 device
+// Extract device’s parameters from an EEPROM dump of a MLX90640 device
 //=============================================================================
 eERRORRESULT MLX90640_ExtractDeviceParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump, bool dumpEEPROM)
 {

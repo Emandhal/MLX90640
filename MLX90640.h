@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file    MLX90640.h
  * @author  Fabien 'Emandhal' MAILLY
- * @version 1.0.1
+ * @version 1.0.2
  * @date    27/02/2021
  * @brief   MLX90640 driver
  *
@@ -123,7 +123,7 @@ extern "C" {
 //-----------------------------------------------------------------------------
 
 #define MLX90640_VddV0  (  3.3f ) //!< Vdd_V0 is +3.3V
-#define MLX90640_TaV0   ( 25.0f ) //!< Ta_V0 is +25ï¿½
+#define MLX90640_TaV0   ( 25.0f ) //!< Ta_V0 is +25°
 
 //-----------------------------------------------------------------------------
 
@@ -254,8 +254,8 @@ ControlItemSize(MLX90640_Control1, 2);
 //! Select subpage enum
 typedef enum
 {
-  MLX90640_SUBPAGE_0_IS_SELECTED = 0b000, //!< Subpage 0 is selected (default)
-  MLX90640_SUBPAGE_1_IS_SELECTED = 0b001, //!< Subpage 1 is selected
+  MLX90640_SUBPAGE_0_IS_SELECTED = 0b0, //!< Subpage 0 is selected (default)
+  MLX90640_SUBPAGE_1_IS_SELECTED = 0b1, //!< Subpage 1 is selected
 } eMLX90640_SelectSubpage;
 
 #define MLX90640_SELECT_SUBPAGE_Pos         4
@@ -284,10 +284,10 @@ typedef enum
 //! ADC resolution control enum
 typedef enum
 {
-  MLX90640_ADC_RESOLUTION_16bits = 0b00, //!< ADC set to 16 bit resolution
-  MLX90640_ADC_RESOLUTION_17bits = 0b01, //!< ADC set to 17 bit resolution
-  MLX90640_ADC_RESOLUTION_18bits = 0b10, //!< ADC set to 18 bit resolution (default)
-  MLX90640_ADC_RESOLUTION_19bits = 0b11, //!< ADC set to 19 bit resolution
+  MLX90640_ADC_RESOLUTION_16bits = 0b00, //!< ADC set to 16-bit resolution
+  MLX90640_ADC_RESOLUTION_17bits = 0b01, //!< ADC set to 17-bit resolution
+  MLX90640_ADC_RESOLUTION_18bits = 0b10, //!< ADC set to 18-bit resolution (default)
+  MLX90640_ADC_RESOLUTION_19bits = 0b11, //!< ADC set to 19-bit resolution
 } eMLX90640_ADCresolution;
 
 #define MLX90640_ADC_RESOLUTION_Pos         10
@@ -312,7 +312,7 @@ typedef enum
 
 //-----------------------------------------------------------------------------
 
-//! Subpage mode
+//! Subpage modes
 typedef enum
 {
   MLX90640_MEASURE_ONLY_SUBPAGE0      = 0x0, //!< Measure only subpage 0
@@ -383,8 +383,8 @@ ControlItemSize(MLX90640_I2Caddress, 2);
 //! List of supported devices
 typedef enum
 {
-  MLX90640BAA,            //!< MLX90640BAA - FOV = 110ï¿½x75ï¿½
-  MLX90640BAB,            //!< MLX90640BAB - FOV = 55ï¿½x35ï¿½
+  MLX90640BAA,            //!< MLX90640BAA - FOV = 110°x75°
+  MLX90640BAB,            //!< MLX90640BAB - FOV = 55°x35°
   eMLX90640_DEVICE_COUNT, // Device count of this enum, keep last
 } eMLX90640_Devices;
 
@@ -739,7 +739,7 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 
 
 // Temperature Gradient Coefficient & KsTa Register (EEPROM: 0x243C)
-#define MLX90640_TGC_GET(value)   MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get Temperature Gradient Coefficient (ï¿½4)*2^7
+#define MLX90640_TGC_GET(value)   MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get Temperature Gradient Coefficient (±4)*2^7
 #define MLX90640_KsTa_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTa*2^13
 
 //-----------------------------------------------------------------------------
@@ -749,9 +749,9 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 #define MLX90640_KsTo1  ( 0 )
 #define MLX90640_KsTo2  ( 1 )
 
-// KsTo range 1 (<0ï¿½C) & range 2 (0ï¿½C..CT1ï¿½C) Register (EEPROM: 0x243D)
-#define MLX90640_KsTo_CT_RANGE_1_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 1 (<0ï¿½C)
-#define MLX90640_KsTo_CT_RANGE_2_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 2 (0ï¿½C..CT1ï¿½C)
+// KsTo range 1 (<0°C) & range 2 (0°C..CT1°C) Register (EEPROM: 0x243D)
+#define MLX90640_KsTo_CT_RANGE_1_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 1 (<0°C)
+#define MLX90640_KsTo_CT_RANGE_2_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 2 (0°C..CT1°C)
 
 //-----------------------------------------------------------------------------
 
@@ -760,9 +760,9 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 #define MLX90640_KsTo3  ( 2 )
 #define MLX90640_KsTo4  ( 3 )
 
-// KsTo range 3 (CT1ï¿½C..CT2ï¿½C) & range 4 (CT2ï¿½C..) Register (EEPROM: 0x243E)
-#define MLX90640_KsTo_CT_RANGE_3_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 3 (CT1ï¿½C..CT2ï¿½C)
-#define MLX90640_KsTo_CT_RANGE_4_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 4 (CT2ï¿½C..)
+// KsTo range 3 (CT1°C..CT2°C) & range 4 (CT2°C..) Register (EEPROM: 0x243E)
+#define MLX90640_KsTo_CT_RANGE_3_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,8) //!< Get KsTo Corner Temperature range 3 (CT1°C..CT2°C)
+#define MLX90640_KsTo_CT_RANGE_4_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,8,8) //!< Get KsTo Corner Temperature range 4 (CT2°C..)
 
 //-----------------------------------------------------------------------------
 
@@ -889,9 +889,9 @@ typedef union __PACKED__ MLX90640_EEPROM
     MLX90640_AlphaCP Alpha_CP;   //!< (Offset16: 0x39) Alpha Compensation Pixel subpage
     MLX90640_OffsetCP Offset_CP; //!< (Offset16: 0x3A) Offset Compensation Pixel subpage
     uint16_t K_CP;               //!< (Offset16: 0x3B) Kta Compensation Pixel & Kv Compensation Pixel
-    uint16_t TGC_KsTa;           //!< (Offset16: 0x3C) Temperature Gradient Coefficient (ï¿½4)*2^7 & KsTa*2^13
-    uint16_t KsTo_Range1_2;      //!< (Offset16: 0x3D) KsTo range 1 (<0ï¿½C) & KsTo range 2 (0ï¿½C..CT1ï¿½C)
-    uint16_t KsTo_Range3_4;      //!< (Offset16: 0x3E) KsTo range 3 (CT1ï¿½C..CT2ï¿½C) & range 4 (CT2ï¿½C..)
+    uint16_t TGC_KsTa;           //!< (Offset16: 0x3C) Temperature Gradient Coefficient (±4)*2^7 & KsTa*2^13
+    uint16_t KsTo_Range1_2;      //!< (Offset16: 0x3D) KsTo range 1 (<0°C) & KsTo range 2 (0°C..CT1°C)
+    uint16_t KsTo_Range3_4;      //!< (Offset16: 0x3E) KsTo range 3 (CT1°C..CT2°C) & range 4 (CT2°C..)
     MLX90640_CTtemp CT_Temp;     //!< (Offset16: 0x3F) CT and Temp
     union
     {
@@ -1114,7 +1114,7 @@ struct MLX90640
   //--- Interface driver params and call functions ---
   uint8_t I2Caddress;                       //!< Device address set into the I2C address (0x800F) register. Use MLX90640_CHIPADDRESS_DEFAULT if you do not have change the address
   void *InterfaceDevice;                    //!< This is the pointer that will be in the first parameter of all interface call functions
-  uint32_t I2C_ClockSpeed;                  //!< Clock frequency of the I2C interface in Hertz
+  uint32_t I2CclockSpeed;                   //!< Clock frequency of the I2C interface in Hertz
   MLX90640_I2CInit_Func fnI2C_Init;         //!< This function will be called at driver initialization to configure the interface driver
   MLX90640_I2CTransfer_Func fnI2C_Transfer; //!< This function will be called when the driver needs to transfer data over the I2C communication with the device
 
@@ -1144,7 +1144,7 @@ typedef struct MLX90640_Config
   eMLX90640_ADCresolution ADCresolution;   //!< Select the ADC resolution of the IR sensors
 
   //--- I2C configuration ---
-  bool I2C_FMp_Enable;                     //!< I2C FM+: 'true' = Enable (SCL @ 1MHz) ; 'false' = Disable (SCL @ 400kHz)
+  bool I2C_FMpEnable;                      //!< I2C FM+: 'true' = Enable (SCL @ 1MHz) ; 'false' = Disable (SCL @ 400kHz)
   bool SetThresholdTo1V8;                  //!< I2C threshold level to 1.8V: 'true' = threshold to 1.8V ; 'false' = threshold to Vdd
   bool SetSDAdriverCurrentLimit;           //!< I2C driver current limit: 'true' = Enable ; 'false' = Disable
 } MLX90640_Config;
@@ -1157,7 +1157,7 @@ typedef struct MLX90640_Config
 
 /*! @brief MLX90640 device initialization
  *
- * This function initializes the MLX90640 driver and call the initialization of the interface driver (SPI).
+ * This function initializes the MLX90640 driver and call the initialization of the interface driver (I2C).
  * Next it checks parameters and configures the MLX90640
  * @param[in] *pComp Is the pointed structure of the device to be initialized
  * @param[in] *pConf Is the pointed structure of the device configuration
@@ -1204,11 +1204,11 @@ eERRORRESULT MLX90640_GetDeviceID(MLX90640 *pComp, eMLX90640_Devices* device, ui
 
 /*! @brief Read data from the MLX90640 device
  *
- * This function reads data from the MLX90640 device
+ * This function reads data from the MLX90640 device. This function will convert the big-endian data (the device communicates in big endian) to the endianness of the CPU
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in] address Is the address to read
  * @param[in] *data Is where the data array will be stored
- * @param[in] size Is the size of the data array to read
+ * @param[in] size Is the size of the data array to read (count of 16-bits data)
  * @return Returns an #eERRORRESULT value enum
  */
 eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t* data, size_t size);
@@ -1230,9 +1230,9 @@ inline eERRORRESULT MLX90640_ReadRegister(MLX90640 *pComp, const uint16_t addres
 
 /*! @brief Write data to the MLX90640 device
  *
- * This function writes data to the MLX90640 device
+ * This function writes data to the MLX90640 device. This function will convert data the from endianness of the CPU to big endian (the device communicates in big endian)
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @param[in] address Is the address where data will be written (can be inside a page)
+ * @param[in] address Is the address where data will be written (address will be incremented automatically)
  * @param[in] *data Is the data array to store
  * @param[in] size Is the size of the data array to write
  * @return Returns an #eERRORRESULT value enum
@@ -1244,7 +1244,7 @@ eERRORRESULT MLX90640_WriteData(MLX90640 *pComp, const uint16_t address, const u
  *
  * This function writes data to a register of the MLX90640 device
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @param[in] address Is the address where data will be written (can be inside a page)
+ * @param[in] address Is the address where data will be written (address will be incremented automatically)
  * @param[in] *data Is the data to store
  * @return Returns an #eERRORRESULT value enum
  */
@@ -1283,12 +1283,12 @@ eERRORRESULT MLX90640_GetFrameData(MLX90640 *pComp, MLX90640_FrameData* frameDat
 /*! @brief Configure the I2C on the MLX90640 device
  *
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @param[in] i2c_FMp_Enable Indicate if the FM+ mode of the device should be activated
+ * @param[in] i2cFMpEnable Indicate if the FM+ mode of the device should be activated
  * @param[in] setThresholdTo1V8 Set the I2C threshold of the device. 'true' to set to 1.8V, 'false' to set to Vdd
  * @param[in] setSDAdriverCurrentLimit Indicate if the device should limit its current on SDA pin
  * @return Returns an #eERRORRESULT value enum
  */
-eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2c_FMp_Enable, bool setThresholdTo1V8, bool setSDAdriverCurrentLimit);
+eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2cFMpEnable, bool setThresholdTo1V8, bool setSDAdriverCurrentLimit);
 
 
 /*! @brief Configure the MLX90640 device
@@ -1300,11 +1300,12 @@ eERRORRESULT MLX90640_ConfigureDeviceI2C(MLX90640 *pComp, bool i2c_FMp_Enable, b
  * @param[in] ADCresolution Set the ADC resolution of Vdd
  * @return Returns an #eERRORRESULT value enum
  */
-eERRORRESULT MLX90640_ConfigureDevice(MLX90640 *pComp, eMLX90640_SubpageMode SubpageMode, eMLX90640_RefreshRate RefreshRate, eMLX90640_ReadingPattern ReadingPattern, eMLX90640_ADCresolution ADCresolution);
+eERRORRESULT MLX90640_ConfigureDevice(MLX90640 *pComp, eMLX90640_SubpageMode subpageMode, eMLX90640_RefreshRate refreshRate, eMLX90640_ReadingPattern readingPattern, eMLX90640_ADCresolution adcResolution);
 
 
 /*! @brief Change the I2C address of the MLX90640 device
  *
+ * After using this function, reset the device to use it at its new address
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in] newAddress Is the new I2C address to set. The value shall be > 0x00 and < 0x7F
  * @return Returns an #eERRORRESULT value enum
@@ -1315,7 +1316,7 @@ eERRORRESULT MLX90640_ChangeI2Caddress(MLX90640 *pComp, uint8_t newAddress);
 
 
 
-/*! @brief Extract parameters on the MLX90640 device
+/*! @brief Extract device’s parameters from an EEPROM dump of a MLX90640 device
  *
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in,out] *eepromDump Is where the EEPROM dump will be stored if extracted or the EEPROM dump to use for parameters extraction
@@ -1330,7 +1331,7 @@ eERRORRESULT MLX90640_ExtractDeviceParameters(MLX90640 *pComp, MLX90640_EEPROM *
 
 /*! @brief Calculate Object Temperature of the frame on the MLX90640 device
  *
- * This function calculate the subframe To (Object Temperature) of the frame data previously extracted. It will only update the associated subframe's pixels and let others pixels untouched
+ * This function calculates the subframe To (Object Temperature) of the frame data previously extracted. It will only update the associated subframe's pixels and let others pixels untouched
  * In order to compensate correctly for the emissivity and achieve best accuracy we need to know the surrounding temperature which is responsible for the second component of the IR signal namely the reflected part -Tr. In case this temperature is not available and cannot be provided it might be replaced by Tr ~= Ta-8.
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in] *frameData Is the extracted frame data from the device
@@ -1344,8 +1345,8 @@ eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData
 
 /*! @brief Correct bad pixels in a frame on the MLX90640 device
  *
- * This function the defective pixel value by replacing its value by an interpolation of its neighboring pixels (See ï¿½9 of datasheet), here it is a mean of the neighboring pixels (X-1, X+1, Y-1, and Y+1, when available)
- * This function change only defective pixels, others will no be touched
+ * This function corrects the defective pixel value by replacing its value by an interpolation of its neighboring pixels (See §9 of datasheet), here it is a mean of the neighboring pixels (X-1, X+1, Y-1, and Y+1, when available)
+ * This function changes only defective pixels, others will not be touched
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in,out] *result Is where the result will be stored
  * @return Returns an #eERRORRESULT value enum
@@ -1359,7 +1360,7 @@ eERRORRESULT MLX90640_CorrectBadPixels(MLX90640 *pComp, MLX90640_FrameTo *result
 /*! @brief Invert endianness of an array of data
  *
  * Invert the endianness of the data array from big endian to little endian
- * In processor with little endianness, this function is useful because the device is communicate data in big endian
+ * In processor with little endianness, this function is useful because the device is communicating data in big endian
  * @param[in,out] *data Is the data array where to invert endianness
  * @param[in] size Count of uint16_t data in the array
  */

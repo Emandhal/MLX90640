@@ -113,7 +113,7 @@ struct TCA9543A_I2C I2C1_MUX =
 
 //********************************************************************************************************************
 
-MLX90640_FrameData IrCAM_Frame =
+MLX90640_FrameData IrCAM_FrameData =
 {
   .Words =
   {
@@ -211,6 +211,7 @@ MLX90640_EEPROM IrCAM_EEPROM =
 
 //MLX90640_EEPROM IrCAM_EEPROM;
 MLX90640_Parameters IrCAM_Params;
+//MLX90640_FrameData IrCAM_FrameData;
 
 
 //=============================================================================
@@ -222,7 +223,7 @@ struct MLX90640 MLX90640_V71 =
   //--- Interface driver params and call functions ---
   .I2Caddress      = MLX90640_CHIPADDRESS_DEFAULT,
   .InterfaceDevice = I2C0,
-  .I2C_ClockSpeed  = BOARD_I2C_CLK_SPEED_HZ,
+  .I2CclockSpeed   = BOARD_I2C_CLK_SPEED_HZ,
   .fnI2C_Init      = TCA9543A_I2CInit,
   .fnI2C_Transfer  = TCA9543A_I2CTranfert,
   //--- Time call function ---
@@ -246,7 +247,7 @@ MLX90640_Config IrCAM_Config =
   .ReadingPattern = MLX90640_READING_CHESS_PATTERN_MODE,
   .ADCresolution  = MLX90640_ADC_RESOLUTION_18bits,
   //--- I2C configuration ---
-  .I2C_FMp_Enable           = false,
+  .I2C_FMpEnable            = false,
   .SetThresholdTo1V8        = false,
   .SetSDAdriverCurrentLimit = false,
 };

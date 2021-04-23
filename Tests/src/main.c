@@ -474,12 +474,12 @@ int main (void)
       do 
       {
         //--- Get subframe frame data ---
-        Error = MLX90640_GetFrameData(IrCAM, &IrCAM_Frame);
+        Error = MLX90640_GetFrameData(IrCAM, &IrCAM_FrameData);
         if (Error != ERR_OK) break;
 
         EXT2_PWM_Low;
         //--- Calculate the subframe To
-        Error = MLX90640_CalculateTo(IrCAM, &IrCAM_Frame, 1.0f, Tr, &IrFrame);
+        Error = MLX90640_CalculateTo(IrCAM, &IrCAM_FrameData, 1.0f, Tr, &IrFrame);
         if (Error != ERR_OK) break;
         Error = MLX90640_CorrectBadPixels(IrCAM, &IrFrame);
         if (Error != ERR_OK) break;

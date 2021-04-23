@@ -21,7 +21,7 @@ This driver has been designed to:
 ## Limitations
 
 To use this driver and device, you need:
-* At least 20k of RAM. The driver itself needs 1664byte for EEPROM, 106+10704bytes for parameters, 1666bytes for the data frame, and 3096 for the frame result
+* At least 20k of RAM. The driver itself needs 1664 bytes for EEPROM, 106+10704 bytes for parameters, 1666 bytes for the data frame, and 3096 bytes for the frame result
 * An FPU on the CPU else the driver will be very slow and only slow refresh speed can be achieved
 
 # Usage
@@ -51,8 +51,8 @@ To set up one or more devices in the project, you must:
 * Create and define a configuration for each device. Multiple devices can share the same configuration
 * Initialize the device with the configuration structure previously defined
 
-**All is explained in the MLX90640 driver library guide** available soon
+**All is explained in the MLX90640 driver library guide**
 
 # Driver usage
 
-**All is explained in the MLX90640 driver library guide** available soon
+**All is explained in the MLX90640 driver library guide**

@@ -24,10 +24,6 @@
 #define CONF_MLX90640_H
 //=============================================================================
 
-//-----------------------------------------------------------------------------
-
-
-
 
 
 // If in debug mode, check NULL parameters that are mandatory in each functions of the driver
@@ -36,9 +32,9 @@
 #endif
 
 
-// This define specify to the driver to pre-calculate Offset, Sensitivity, Kta, and Kv of each pixels and save them in the MLX90640_Parameters
+// This define specify to the driver to pre-calculate Offset, Sensitivity, Kta, and Kv of each pixel and save them in the MLX90640_Parameters
 // If the following define is set, the driver will take 768x2+768x4x3 = 10704 bytes of RAM more to store theses values
-// If unset then the driver will takes less ram but more time to calculate To of each pixels
+// If unset then the driver will take less ram but more time to calculate To of each pixels
 #define MLX90640_PRECALCULATE_PIXELS_COEFFS
 
 
@@ -47,8 +43,6 @@
 // A good practice would be to apply a Moving Average Filter with length of 16 or higher
 // If set to < 2, the filter will be disabled
 //#define MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT  ( 16 )
-
-
 
 
 

@@ -56,12 +56,12 @@ extern struct TCA9543A_I2C I2C1_MUX;
 //-----------------------------------------------------------------------------
 
 
-MLX90640_FrameData IrCAM_Frame;
 
 
 //-----------------------------------------------------------------------------
 extern MLX90640_EEPROM IrCAM_EEPROM;
 extern MLX90640_Parameters IrCAM_Params;
+extern MLX90640_FrameData IrCAM_FrameData;
 
 
 // Structure of the MLX90640 used in the demo

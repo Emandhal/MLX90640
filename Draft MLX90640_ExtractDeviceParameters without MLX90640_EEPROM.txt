@@ -1,0 +1,715 @@
+//**********************************************************************************************************************************************************
+//=============================================================================
+// Calculate and store Vdd parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  int16_t Kv_Vdd;
+  int16_t Vdd_25;
+  uint8_t ResCtrlCalib;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                    // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    //--- Get Resoltution EE value ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KscaleParam, &RegData); // Extract Resolution Control directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                       // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    ResCtrlCalib = MLX90640_RES_CTRL_CAL_GET(RegData);                       // Get value
+    //--- get Vdd values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_VddParam, &RegData);    // Extract Vdd values directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                       // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    Kv_Vdd = MLX90640_Kv_Vdd_GET(RegData);                                   // Get Kv_Vdd value
+    Vdd_25 = MLX90640_Vdd_25_GET(RegData);                                   // Get Vdd_25 value
+  }
+  else                                                                       // Else get values from EEPROM dump
+  {
+    ResCtrlCalib = MLX90640_RES_CTRL_CAL_GET(eepromDump->K_Scale.Kscale);
+    Kv_Vdd = MLX90640_Kv_Vdd_GET(eepromDump->Vdd);
+    Vdd_25 = MLX90640_Vdd_25_GET(eepromDump->Vdd);
+  }
+
+  //--- Calculate and store values ---
+  pComp->Params->Resolution = ResCtrlCalib;
+  pComp->Params->Kv_Vdd = (Kv_Vdd * 32);                // See §11.1.1
+  pComp->Params->Vdd_25 = ((Vdd_25 - 256) * 32) - 8192; // See §11.1.1
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store Ambient Temperature coefficients parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractPTATParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  int16_t Kv_PTAT = 0;
+  int16_t Kt_PTAT = 0;
+  int16_t PTAT_25 = 0;
+  uint8_t AlphaPTAT = 0u;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                    // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    //--- Get K_PTAT values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KPTATParam, &RegData);  // Extract K_PTAT directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                       // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    Kv_PTAT = MLX90640_Kv_PTAT_GET(RegData);                                 // Get Kv_PTAT value
+    Kt_PTAT = MLX90640_Kt_PTAT_GET(RegData);                                 // Get Kt_PTAT value
+    //--- Get PTAT_25 value ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_PTAT25Param, &RegData); // Extract PTAT_25 directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                       // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    PTAT_25 = (int16_t)RegData;                                              // Get PTAT_25 value
+    //--- Get AlphaPTAT value ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_ScaleOCC, &RegData);    // Extract Alpha_PTAT directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                       // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    AlphaPTAT = MLX90640_ALPHA_PTAT_GET(RegData);                            // Get value
+  }
+  else                                                                       // Else get values from EEPROM dump
+  {
+    Kv_PTAT = MLX90640_Kv_PTAT_GET(eepromDump->K_PTAT.KPTAT);
+    Kt_PTAT = MLX90640_Kt_PTAT_GET(eepromDump->K_PTAT.KPTAT);
+    PTAT_25 = eepromDump->PTAT_25;
+    AlphaPTAT = MLX90640_ALPHA_PTAT_GET(eepromDump->ScaleOCC.ScaleOCC);
+  }
+
+  //--- Calculate and store values ---
+  pComp->Params->KvPTAT    = (float)Kv_PTAT / 4096.0f;         // See §11.1.2
+  pComp->Params->KtPTAT    = (float)Kt_PTAT /    8.0f;         // See §11.1.2
+  pComp->Params->PTAT_25   = PTAT_25;                          // See §11.1.2
+  pComp->Params->AlphaPTAT = ((float)AlphaPTAT / 4.0f) + 8.0f; // See §11.1.2
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store Pixels Offset parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  uint16_t Data[16];
+  uint16_t OccScaleRem;
+  uint16_t OccScaleCol;
+  uint16_t OccScaleRow;
+  int16_t OffsetAverage;
+  uint16_t* OffsetRow;
+  uint16_t* OffsetCol;
+  int16_t OccRow[MLX90640_ROW_COUNT];
+  int16_t OccCol[MLX90640_COL_COUNT];
+  uint16_t OffsetCPsp0;
+  int16_t OffsetCPdelta;
+  size_t Offset;
+  MLX90640_PixelData PixelRow[MLX90640_COL_COUNT];
+  MLX90640_PixelData* CurrentRow;
+  int16_t OffsetPixel;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL) // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    //--- Get Offset Compensation Pixels SubPages values ---
+    Error = MLX90640_ReadData(pComp, EepMLX90640_OffsetCPspParam, &RegData, sizeof(RegData)); // Extract Offsets CP subpages directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                                        // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    OffsetCPsp0   = MLX90640_OFFSET_CP_SUBPAGE_GET(RegData);
+    OffsetCPdelta = MLX90640_OFFSET_CP_P1P0_DELTA_GET(RegData);
+    //--- Get Offsets data values ---
+    Error = MLX90640_ReadData(pComp, EepMLX90640_OffsetsData, &Data[0], sizeof(Data)); // Extract Offsets directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                                 // If there is an error while calling MLX90640_ReadData() then return the Error
+    OccScaleRem = MLX90640_SCALE_OCC_REM_GET(Data[0]);                                 // Get values
+    OccScaleCol = MLX90640_SCALE_OCC_COL_GET(Data[0]);
+    OccScaleRow = MLX90640_SCALE_OCC_ROW_GET(Data[0]);
+    OffsetAverage = (int16_t)Data[1];
+    OffsetRow = &Data[2];
+    OffsetCol = &Data[8];
+  }
+  else // Else get value from EEPROM dump
+  {
+    OffsetCPsp0   = MLX90640_OFFSET_CP_SUBPAGE_GET(eepromDump->Offset_CP.OffsetCPsubpage);
+    OffsetCPdelta = MLX90640_OFFSET_CP_P1P0_DELTA_GET(eepromDump->Offset_CP.OffsetCPsubpage);
+    OccScaleRem = MLX90640_SCALE_OCC_REM_GET(eepromDump->ScaleOCC.ScaleOCC);
+    OccScaleCol = MLX90640_SCALE_OCC_COL_GET(eepromDump->ScaleOCC.ScaleOCC);
+    OccScaleRow = MLX90640_SCALE_OCC_ROW_GET(eepromDump->ScaleOCC.ScaleOCC);
+    OffsetAverage = eepromDump->PixOsAvg;
+    OffsetRow = &eepromDump->Occ.Row.Row[0];
+    OffsetCol = &eepromDump->Occ.Column.Column[0];
+  }
+
+  //--- Calculate and store Offset CP subpages ---
+  pComp->Params->CPsubpageOffset[0] = OffsetCPsp0;                 // See §11.1.13
+  pComp->Params->CPsubpageOffset[1] = OffsetCPsp0 + OffsetCPdelta; // See §11.1.13
+
+  //--- Calculate Row values ---
+  Offset = 0;
+  for (size_t z = 0; z < (MLX90640_ROW_COUNT / 4); ++z)
+  {
+    Offset = (z << 2);
+    OccRow[Offset + 0] = MLX90640_EXTRACT_NIBBLE_0(OffsetRow[z]);
+    OccRow[Offset + 1] = MLX90640_EXTRACT_NIBBLE_1(OffsetRow[z]);
+    OccRow[Offset + 2] = MLX90640_EXTRACT_NIBBLE_2(OffsetRow[z]);
+    OccRow[Offset + 3] = MLX90640_EXTRACT_NIBBLE_3(OffsetRow[z]);
+  }
+
+  //--- Calculate Column values ---
+  Offset = 0;
+  for (size_t z = 0; z < (MLX90640_COL_COUNT / 4); ++z)
+  {
+    Offset = (z << 2);
+    OccCol[Offset + 0] = MLX90640_EXTRACT_NIBBLE_0(OffsetCol[z]);
+    OccCol[Offset + 1] = MLX90640_EXTRACT_NIBBLE_1(OffsetCol[z]);
+    OccCol[Offset + 2] = MLX90640_EXTRACT_NIBBLE_2(OffsetCol[z]);
+    OccCol[Offset + 3] = MLX90640_EXTRACT_NIBBLE_3(OffsetCol[z]);
+  }
+
+  //--- Calculate and store Pixels values ---
+  for(int y = 0; y < MLX90640_ROW_COUNT; ++y)
+  {
+    //--- Get Row pixels values ---
+    if (eepromDump == NULL)                                                                                                       // No EEPROM dump ?
+    {
+      Error = MLX90640_ReadData(pComp, EepMLX90640_PixelsParam + (y * MLX90640_COL_COUNT), &PixelRow[0].Pixel, sizeof(PixelRow)); // Extract pixels row directly from the EEPROM
+      if (Error != ERR_OK) return Error;                                                                                          // If there is an error while calling MLX90640_ReadData() then return the Error
+      CurrentRow = &PixelRow[0];
+    }
+    else CurrentRow = &eepromDump->PixelYXData[y][0];
+
+    //--- Calculate and store pixel value ---
+    for(int x = 0; x < MLX90640_COL_COUNT; ++x)
+    {
+      OffsetPixel = MLX90640_OFFSET_PIXEL_GET(CurrentRow[x].Pixel);
+      pComp->Params->OffsetsYX[y][x] = OffsetAverage + (OccRow[y] << OccScaleRow) + (OccCol[x] << OccScaleCol) + (OffsetPixel << OccScaleRem); // *** Pixel offset restoring. See §11.1.3
+    }
+  }
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store ILchess parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractILchessParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  int16_t ILchessC1;
+  int16_t ILchessC2;
+  int16_t ILchessC3;
+  uint8_t CalibrationMode;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                     // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_ILchessParam, &RegData); // Extract IL Chess directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                        // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    ILchessC1 = MLX90640_IL_CHESS_C1_GET(RegData);                            // Get ILchessC1 value
+    ILchessC2 = MLX90640_IL_CHESS_C2_GET(RegData);                            // Get ILchessC2 value
+    ILchessC3 = MLX90640_IL_CHESS_C3_GET(RegData);                            // Get ILchessC3 value
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_DeviceOption, &RegData);
+    if (Error != ERR_OK) return Error;                                        // If there is an error while calling MLX90640_ReadRegister() then return the error
+    CalibrationMode = (uint8_t)MLX90640_CALIBRATION_MODE_GET(RegData);
+  }
+  else                                                                        // Else get values from EEPROM dump
+  {
+    ILchessC1 = MLX90640_IL_CHESS_C1_GET(eepromDump->IL_Chess.ILchess);
+    ILchessC2 = MLX90640_IL_CHESS_C2_GET(eepromDump->IL_Chess.ILchess);
+    ILchessC3 = MLX90640_IL_CHESS_C3_GET(eepromDump->IL_Chess.ILchess);
+    CalibrationMode = (uint8_t)MLX90640_CALIBRATION_MODE_GET(eepromDump->DeviceOptions);
+  }
+
+  //--- Calculate and store values ---
+  pComp->Params->ILchess[MLX90640_C1] = (float)ILchessC1 / 16.0f; // See §11.1.3.1
+  pComp->Params->ILchess[MLX90640_C2] = (float)ILchessC2 /  2.0f; // See §11.1.3.1
+  pComp->Params->ILchess[MLX90640_C3] = (float)ILchessC3 /  8.0f; // See §11.1.3.1
+  pComp->Params->CalibrationPattern = CalibrationMode;
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store Pixels Sensitivity parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractPixelsSensitivityParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  uint16_t Data[16];
+  uint16_t AccScaleRem;
+  uint16_t AccScaleCol;
+  uint16_t AccScaleRow;
+  uint16_t AlphaScale;
+  int16_t AlphaRef;
+  uint16_t* AlphaRow;
+  uint16_t* AlphaCol;
+  int16_t AccRow[MLX90640_ROW_COUNT];
+  int16_t AccCol[MLX90640_COL_COUNT];
+  uint16_t AlphaCPsp0;
+  int16_t AlphaCPratio;
+  size_t Offset;
+  MLX90640_PixelData PixelRow[MLX90640_COL_COUNT];
+  MLX90640_PixelData* CurrentRow;
+  int16_t AlphaPixel;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL) // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    //--- Get Alpha Compensation Pixels SubPages values ---
+    Error = MLX90640_ReadData(pComp, EepMLX90640_AlphaCPspParam, &RegData, sizeof(RegData)); // Extract Alpha CP subpages directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                                       // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    AlphaCPsp0   = MLX90640_ALPHA_CP_SUBPAGE0_GET(RegData);
+    AlphaCPratio = MLX90640_ALPHA_CP_P1P0_RATIO_GET(RegData);
+    //--- Get Alphas data values ---
+    Error = MLX90640_ReadData(pComp, EepMLX90640_AlphasData, &Data[0], sizeof(Data)); // Extract Sensitivity directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                                // If there is an error while calling MLX90640_ReadData() then return the Error
+    AccScaleRem = MLX90640_SCALE_ACC_REM_GET(Data[0]);                                // Get values
+    AccScaleCol = MLX90640_SCALE_ACC_COL_GET(Data[0]);
+    AccScaleRow = MLX90640_SCALE_ACC_ROW_GET(Data[0]);
+    AlphaScale  = MLX90640_ALPHA_SCALE_GET(Data[0]);
+    AlphaRef    = (int32_t)Data[1];
+    AlphaRow    = &Data[2];
+    AlphaCol    = &Data[8];
+  }
+  else // Else get value from EEPROM dump
+  {
+    AlphaCPsp0   = MLX90640_ALPHA_CP_SUBPAGE0_GET(eepromDump->Alpha_CP.AlphaCPsubpage);
+    AlphaCPratio = MLX90640_ALPHA_CP_P1P0_RATIO_GET(eepromDump->Alpha_CP.AlphaCPsubpage);
+    AccScaleRem  = MLX90640_SCALE_ACC_REM_GET(eepromDump->ScaleACC.ScaleACC);
+    AccScaleCol  = MLX90640_SCALE_ACC_COL_GET(eepromDump->ScaleACC.ScaleACC);
+    AccScaleRow  = MLX90640_SCALE_ACC_ROW_GET(eepromDump->ScaleACC.ScaleACC);
+    AlphaScale   = MLX90640_ALPHA_SCALE_GET(eepromDump->ScaleACC.ScaleACC);
+    AlphaRef     = eepromDump->PixSensitivityAvg;
+    AlphaRow     = &eepromDump->Acc.Row.Row[0];
+    AlphaCol     = &eepromDump->Acc.Column.Column[0];
+  }
+
+  //--- Calculate and store Alpha CP subpages ---
+  pComp->Params->CPsubpageAlpha[0] = (float)AlphaCPsp0/(float)((uint64_t)1 << (AlphaScale + 27));                      // See §11.1.12
+  pComp->Params->CPsubpageAlpha[1] = pComp->Params->CPsubpageAlpha[0] * (1.0 + ((float)AlphaCPratio/(float)(1 << 7))); // See §11.1.12
+
+  //--- Calculate Row values ---
+  Offset = 0;
+  for (size_t z = 0; z < (MLX90640_ROW_COUNT / 4); ++z)
+  {
+    Offset = (z << 2);
+    AccRow[Offset + 0] = MLX90640_EXTRACT_NIBBLE_0(AlphaRow[z]);
+    AccRow[Offset + 1] = MLX90640_EXTRACT_NIBBLE_1(AlphaRow[z]);
+    AccRow[Offset + 2] = MLX90640_EXTRACT_NIBBLE_2(AlphaRow[z]);
+    AccRow[Offset + 3] = MLX90640_EXTRACT_NIBBLE_3(AlphaRow[z]);
+  }
+
+  //--- Calculate Column values ---
+  Offset = 0;
+  for (size_t z = 0; z < (MLX90640_COL_COUNT / 4); ++z)
+  {
+    Offset = (z << 2);
+    AccCol[Offset + 0] = MLX90640_EXTRACT_NIBBLE_0(AlphaCol[z]);
+    AccCol[Offset + 1] = MLX90640_EXTRACT_NIBBLE_1(AlphaCol[z]);
+    AccCol[Offset + 2] = MLX90640_EXTRACT_NIBBLE_2(AlphaCol[z]);
+    AccCol[Offset + 3] = MLX90640_EXTRACT_NIBBLE_3(AlphaCol[z]);
+  }
+
+  //--- Calculate and store Pixels values ---
+  AlphaScale += 30;
+  for(int y = 0; y < MLX90640_ROW_COUNT; ++y)
+  {
+    //--- Get Row pixels values ---
+    if (eepromDump == NULL)                                                                                                       // No EEPROM dump ?
+    {
+      Error = MLX90640_ReadData(pComp, EepMLX90640_PixelsParam + (y * MLX90640_COL_COUNT), &PixelRow[0].Pixel, sizeof(PixelRow)); // Extract pixels row directly from the EEPROM
+      if (Error != ERR_OK) return Error;                                                                                          // If there is an error while calling MLX90640_ReadData() then return the Error
+      CurrentRow = &PixelRow[0];
+    }
+    else CurrentRow = &eepromDump->PixelYXData[y][0];
+
+    //--- Calculate and store pixel value ---
+    for(int x = 0; x < MLX90640_COL_COUNT; ++x)
+    {
+      AlphaPixel = MLX90640_ALPHA_PIXEL_GET(CurrentRow[x].Pixel);
+      pComp->Params->AlphasYX[y][x]  = (float)((int32_t)AlphaRef + ((int32_t)AccRow[y] << AccScaleRow) + ((int32_t)AccCol[x] << AccScaleCol) + ((int32_t)AlphaPixel << AccScaleRem));
+      pComp->Params->AlphasYX[y][x] /= (float)((uint64_t)1 << AlphaScale); // *** Pixel alpha restoring. See §11.1.4
+    }
+  }
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store Kta Coefficients Pixels parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractKtaCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  int16_t KtaAvgTable[4];
+  uint16_t KtaScale1;
+  uint16_t KtaScale2;
+  int16_t KtaPixel;
+  int16_t KtaCP;
+  size_t Select;
+  MLX90640_PixelData PixelRow[MLX90640_COL_COUNT];
+  MLX90640_PixelData* CurrentRow;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                        // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    //--- Get Kta Column Even data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KtaColEvenParam, &RegData); // Extract Kta Column Even directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                           // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KtaAvgTable[0] = MLX90640_KtaAvg_ROW_EVEN_COL_EVEN_GET(RegData);             // Get Kta Row Even Column Even value
+    KtaAvgTable[1] = MLX90640_KtaAvg_ROW_ODD_COL_EVEN_GET(RegData);              // Get Kta Row Odd Column Even value
+    //--- Get Kta Column Odd data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KtaColOddParam, &RegData);  // Extract Kta Column Odd directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                           // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KtaAvgTable[2] = MLX90640_KtaAvg_ROW_EVEN_COL_ODD_GET(RegData);              // Get Kta Row Even Column Odd value
+    KtaAvgTable[3] = MLX90640_KtaAvg_ROW_ODD_COL_ODD_GET(RegData);               // Get Kta Row Odd Column Odd value
+    //--- Get Kta Scales data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KscaleParam, &RegData);     // Extract Kta Scales directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                           // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KtaScale1 = MLX90640_Kta_SCALE1_GET(RegData);                                // Get Kta Scale 1 value
+    KtaScale2 = MLX90640_Kta_SCALE2_GET(RegData);                                // Get Kta Scale 2 value
+    //--- Get Kta CP data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KCP_Param, &RegData);       // Extract Kta CP directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                           // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KtaCP = MLX90640_Kta_CP_GET(RegData);                                        // Get KtaCP value
+  }
+  else                                                                           // Else get values from EEPROM dump
+  {
+    KtaAvgTable[0] = MLX90640_KtaAvg_ROW_EVEN_COL_EVEN_GET(eepromDump->KtaAvg_ColumnEven); // Get Kta Row Even Column Even value
+    KtaAvgTable[1] = MLX90640_KtaAvg_ROW_ODD_COL_EVEN_GET(eepromDump->KtaAvg_ColumnEven);  // Get Kta Row Odd Column Even value
+    KtaAvgTable[2] = MLX90640_KtaAvg_ROW_EVEN_COL_ODD_GET(eepromDump->KtaAvg_ColumnOdd);   // Get Kta Row Even Column Odd value
+    KtaAvgTable[3] = MLX90640_KtaAvg_ROW_ODD_COL_ODD_GET(eepromDump->KtaAvg_ColumnOdd);    // Get Kta Row Odd Column Odd value
+    KtaScale1 = MLX90640_Kta_SCALE1_GET(eepromDump->K_Scale.Kscale);                       // Get Kta Scale 1 value
+    KtaScale2 = MLX90640_Kta_SCALE2_GET(eepromDump->K_Scale.Kscale);                       // Get Kta Scale 2 value
+    KtaCP = MLX90640_Kta_CP_GET(eepromDump->K_CP);                                         // Get KtaCP value
+  }
+
+  //--- Calculate and store KtaCP value ---
+  KtaScale1 += 8;
+  pComp->Params->KtaCP = (float)KtaCP / (float)(1 << KtaScale1); // See §11.1.15
+
+  //--- Calculate and store Kta Pixels values ---
+  for(int y = 0; y < MLX90640_ROW_COUNT; ++y)
+  {
+    //--- Get Row pixels values ---
+    if (eepromDump == NULL)                                                                                                       // No EEPROM dump ?
+    {
+      Error = MLX90640_ReadData(pComp, EepMLX90640_PixelsParam + (y * MLX90640_COL_COUNT), &PixelRow[0].Pixel, sizeof(PixelRow)); // Extract pixels row directly from the EEPROM
+      if (Error != ERR_OK) return Error;                                                                                          // If there is an error while calling MLX90640_ReadData() then return the Error
+      CurrentRow = &PixelRow[0];
+    }
+    else CurrentRow = &eepromDump->PixelYXData[y][0];
+
+    //--- Calculate and store pixel value ---
+    for(int x = 0; x < MLX90640_COL_COUNT; ++x)
+    {
+      Select = ((y & 0x1) << 1) + (x & 0x1); // Select the good Kta Average value in KtaAvgTable
+      KtaPixel = MLX90640_Kta_GET(CurrentRow[x].Pixel);
+      pComp->Params->KtaCoeffYX[y][x]  = (float)((int32_t)KtaAvgTable[Select] + ((int32_t)KtaPixel << KtaScale2));
+      pComp->Params->KtaCoeffYX[y][x] /= (float)((uint32_t)1 << KtaScale1); // *** Pixel Kta restoring. See §11.1.6
+    }
+  }
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store Kv Coefficients Pixels parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractKvCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  int16_t KvAvgTable[4];
+  int16_t KvCP;
+  uint16_t KvScale;
+  size_t Select;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                      // No EEPROM dump ?
+  {
+    uint16_t RegData;
+    //--- Get Kv Column Row data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KvColRowParam, &RegData); // Extract Kv Column Row directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KvAvgTable[0] = MLX90640_KvAVG_ROW_EVEN_COL_EVEN_GET(RegData);             // Get Kv Row Even Column Even value
+    KvAvgTable[1] = MLX90640_KvAVG_ROW_ODD_COL_EVEN_GET(RegData);              // Get Kv Row Odd Column Even value
+    KvAvgTable[2] = MLX90640_KvAVG_ROW_EVEN_COL_ODD_GET(RegData);              // Get Kv Row Even Column Odd value
+    KvAvgTable[3] = MLX90640_KvAVG_ROW_ODD_COL_ODD_GET(RegData);               // Get Kv Row Odd Column Odd value
+    //--- Get Kv Scales data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KscaleParam, &RegData);   // Extract Kv Scales directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KvScale = MLX90640_Kv_SCALE_GET(RegData);                                  // Get Kv Scale value
+    //--- Get Kv CP data values ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_KCP_Param, &RegData);     // Extract Kv CP directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    KvCP = MLX90640_Kv_CP_GET(RegData);                                        // Get KvCP value
+  }
+  else                                                                         // Else get values from EEPROM dump
+  {
+    KvAvgTable[0] = MLX90640_KvAVG_ROW_EVEN_COL_EVEN_GET(eepromDump->Kv_Avg.KvAvg); // Get Kv Row Even Column Even value
+    KvAvgTable[1] = MLX90640_KvAVG_ROW_ODD_COL_EVEN_GET(eepromDump->Kv_Avg.KvAvg);  // Get Kv Row Odd Column Even value
+    KvAvgTable[2] = MLX90640_KvAVG_ROW_EVEN_COL_ODD_GET(eepromDump->Kv_Avg.KvAvg);  // Get Kv Row Even Column Odd value
+    KvAvgTable[3] = MLX90640_KvAVG_ROW_ODD_COL_ODD_GET(eepromDump->Kv_Avg.KvAvg);   // Get Kv Row Odd Column Odd value
+    KvScale = MLX90640_Kv_SCALE_GET(eepromDump->K_Scale.Kscale);                    // Get Kv Scale value
+    KvCP    = MLX90640_Kv_CP_GET(eepromDump->K_CP);                                 // Get KvCP value
+  }
+
+  //--- Calculate and store KvCP value ---
+  pComp->Params->KvCP = (float)KvCP / (float)(1 << KvScale); // See §11.1.14
+
+  //--- Calculate and store Kv Pixels values ---
+  for(int y = 0; y < MLX90640_ROW_COUNT; ++y)
+  {
+    //--- Calculate and store pixels values ---
+    for(int x = 0; x < MLX90640_COL_COUNT; ++x)
+    {
+      Select = ((y & 0x1) << 1) + (x & 0x1); // Select the good Kv Average value in KvAvgTable
+      pComp->Params->KvCoeffYX[y][x] = ((float)KvAvgTable[Select] / (float)(1 << KvScale)); // *** Pixel Kv restoring. See §11.1.5
+    }
+  }
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store KsTo parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractKsToParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  uint16_t Data[3];
+  uint16_t Step;
+  uint16_t CT3;
+  uint16_t CT4;
+  uint16_t KsToScale;
+  int16_t KsToRange1;
+  int16_t KsToRange2;
+  int16_t KsToRange3;
+  int16_t KsToRange4;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                             // No EEPROM dump ?
+  {
+    Error = MLX90640_ReadData(pComp, EepMLX90640_AlphasData, &Data[0], sizeof(Data)); // Extract Sensitivity directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                                // If there is an error while calling MLX90640_ReadData() then return the Error
+    Step = MLX90640_TEMP_STEP_GET(Data[2]);                                           // Get Step value
+    CT3  = MLX90640_CT3_GET(Data[2]);                                                 // Get CT3 value
+    CT4  = MLX90640_CT4_GET(Data[2]);                                                 // Get CT4 value
+    KsToScale  = MLX90640_KsTo_SCALE_OFFSET_GET(Data[2]);                             // Get KsTo Scale Offset value
+    KsToRange1 = MLX90640_KsTo_CT_RANGE_1_GET(Data[0]);                               // Get KsTo range 1 value
+    KsToRange2 = MLX90640_KsTo_CT_RANGE_2_GET(Data[0]);                               // Get KsTo range 2 value
+    KsToRange3 = MLX90640_KsTo_CT_RANGE_3_GET(Data[1]);                               // Get KsTo range 3 value
+    KsToRange4 = MLX90640_KsTo_CT_RANGE_4_GET(Data[1]);                               // Get KsTo range 4 value
+  }
+  else                                                                       // Else get values from EEPROM dump
+  {
+    Step = MLX90640_TEMP_STEP_GET(eepromDump->CT_Temp.CTtemp);               // Get Step value
+    CT3  = MLX90640_CT3_GET(eepromDump->CT_Temp.CTtemp);                     // Get CT3 value
+    CT4  = MLX90640_CT4_GET(eepromDump->CT_Temp.CTtemp);                     // Get CT4 value
+    KsToScale  = MLX90640_KsTo_SCALE_OFFSET_GET(eepromDump->CT_Temp.CTtemp); // Get KsTo Scale Offset value
+    KsToRange1 = MLX90640_KsTo_CT_RANGE_1_GET(eepromDump->KsTo_Range1_2);    // Get KsTo range 1 value
+    KsToRange2 = MLX90640_KsTo_CT_RANGE_2_GET(eepromDump->KsTo_Range1_2);    // Get KsTo range 2 value
+    KsToRange3 = MLX90640_KsTo_CT_RANGE_3_GET(eepromDump->KsTo_Range3_4);    // Get KsTo range 3 value
+    KsToRange4 = MLX90640_KsTo_CT_RANGE_4_GET(eepromDump->KsTo_Range3_4);    // Get KsTo range 4 value
+  }
+
+  //--- Calculate and store CT values ---
+  Step *= 10;
+  pComp->Params->CT[MLX90640_CT1] = -40;                                                       // Fixed Corner Temperature 1. See §11.1.9
+  pComp->Params->CT[MLX90640_CT2] =   0;                                                       // Fixed Corner Temperature 2. See §11.1.9
+  pComp->Params->CT[MLX90640_CT3] = (int16_t)(CT3 * Step);                                     // Calculate Corner Temperature 3. See §11.1.9
+  pComp->Params->CT[MLX90640_CT4] = (int16_t)((CT4 * Step) + pComp->Params->CT[MLX90640_CT3]); // Calculate Corner Temperature 4. See §11.1.9
+
+  //--- Calculate and store KsTo values ---
+  KsToScale += 8;
+  pComp->Params->KsTo[MLX90640_KsTo1] = (float)KsToRange1 / (float)(1 << KsToScale); // Calculate KsTo coefficient 1. See §11.1.10
+  pComp->Params->KsTo[MLX90640_KsTo2] = (float)KsToRange2 / (float)(1 << KsToScale); // Calculate KsTo coefficient 2. See §11.1.10
+  pComp->Params->KsTo[MLX90640_KsTo3] = (float)KsToRange3 / (float)(1 << KsToScale); // Calculate KsTo coefficient 3. See §11.1.10
+  pComp->Params->KsTo[MLX90640_KsTo4] = (float)KsToRange4 / (float)(1 << KsToScale); // Calculate KsTo coefficient 4. See §11.1.10
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Calculate and store Miscellaneous parameters on the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractMiscellaneousParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  int16_t Gain;
+  int16_t TGC;
+  int16_t KsTa;
+
+  //--- Get values from EEPROM ---
+  if (eepromDump == NULL)                                                      // No EEPROM dump ?
+  {
+    //--- Get Gain data value ---
+    uint16_t RegData;
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_GainParam, &RegData);     // Extract Gain directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    Gain = (int16_t)RegData;                                                   // Get value
+    //--- Get TGC and KsTa data value ---
+    Error = MLX90640_ReadRegister(pComp, EepMLX90640_TGC_KsTaParam, &RegData); // Extract Gain directly from the EEPROM
+    if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ReadRegister() then return the Error
+    TGC  = MLX90640_TGC_GET(RegData);
+    KsTa = MLX90640_KsTa_GET(RegData);
+  }
+  else                                                                         // Else get value from EEPROM dump
+  {
+    Gain = eepromDump->Gain;
+    TGC  = MLX90640_TGC_GET(eepromDump->TGC_KsTa);
+    KsTa = MLX90640_KsTa_GET(eepromDump->TGC_KsTa);
+  }
+
+  //--- Calculate and store values ---
+  pComp->Params->Gain = Gain;                           // See §11.1.7
+  pComp->Params->TGC  = (float)TGC / (float)(1 << 5);   // See §11.1.16
+  pComp->Params->KsTa = (float)KsTa / (float)(1 << 13); // See §11.1.8
+  return ERR_OK;
+}
+
+
+//=============================================================================
+// Extract defective pixels from the MLX90640 device
+//=============================================================================
+static eERRORRESULT __MLX90640_ExtractDefectivePixels(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+{
+  eERRORRESULT Error;
+  MLX90640_PixelData PixelRow[MLX90640_COL_COUNT];
+  MLX90640_PixelData* CurrentRow;
+  size_t Current = 0;
+  for (size_t z = 0; z < MLX90640_MAX_DEFECT_PIXELS; ++z) pComp->Params->DefectivePixels[z].Type = MLX90640_NOT_DETECTIVE;
+
+  //--- Extract defective pixels ---
+  for(int y = 0; y < MLX90640_ROW_COUNT; ++y)
+  {
+    //--- Get Row pixels values ---
+    if (eepromDump == NULL)                                                                                                       // No EEPROM dump ?
+    {
+      Error = MLX90640_ReadData(pComp, EepMLX90640_PixelsParam + (y * MLX90640_COL_COUNT), &PixelRow[0].Pixel, sizeof(PixelRow)); // Extract pixels row directly from the EEPROM
+      if (Error != ERR_OK) return Error;                                                                                          // If there is an error while calling MLX90640_ReadData() then return the Error
+      CurrentRow = &PixelRow[0];
+    }
+    else CurrentRow = &eepromDump->PixelYXData[y][0];
+
+    //--- Get pixel value ---
+    for(int x = 0; x < MLX90640_COL_COUNT; ++x)
+    {
+      //--- Check pixel ---
+      if (MLX90640_PIXEL_IS_BROKEN(CurrentRow[x].Pixel))
+      {
+        if (Current >= MLX90640_MAX_DEFECT_PIXELS) return ERR__TOO_MANY_BAD;
+        pComp->Params->DefectivePixels[Current].Type = MLX90640_BROKEN; // *** Set pixel. See note 1 page 21
+        pComp->Params->DefectivePixels[Current].X    = x;
+        pComp->Params->DefectivePixels[Current].Y    = y;
+        Current++;
+      }
+      else if (MLX90640_PIXEL_IS_OUTLIER(CurrentRow[x].Pixel))
+      {
+        if (Current >= MLX90640_MAX_DEFECT_PIXELS) return ERR__TOO_MANY_BAD;
+        pComp->Params->DefectivePixels[Current].Type = MLX90640_OUTLIER; // *** Set pixel. See §9
+        pComp->Params->DefectivePixels[Current].X    = x;
+        pComp->Params->DefectivePixels[Current].Y    = y;
+        Current++;
+      }
+    }
+  }
+
+  //--- Check if defective pixels are neighbors ---
+  for (size_t zCur = 0; zCur < Current; ++zCur)
+  {
+    for (size_t zTest = 0; zTest < Current; ++zTest)
+    {
+      if (pComp->Params->DefectivePixels[zCur].X > 0)
+        if ((pComp->Params->DefectivePixels[zCur].X - 1) == pComp->Params->DefectivePixels[zTest].X) return ERR__TWO_BAD_SIDE_BY_SIDE;
+      if (pComp->Params->DefectivePixels[zCur].X < (MLX90640_COL_COUNT - 1))
+        if ((pComp->Params->DefectivePixels[zCur].X + 1) == pComp->Params->DefectivePixels[zTest].X) return ERR__TWO_BAD_SIDE_BY_SIDE;
+
+      if (pComp->Params->DefectivePixels[zCur].Y > 0)
+        if ((pComp->Params->DefectivePixels[zCur].Y - 1) == pComp->Params->DefectivePixels[zTest].Y) return ERR__TWO_BAD_SIDE_BY_SIDE;
+      if (pComp->Params->DefectivePixels[zCur].Y < (MLX90640_ROW_COUNT - 1))
+        if ((pComp->Params->DefectivePixels[zCur].Y + 1) == pComp->Params->DefectivePixels[zTest].Y) return ERR__TWO_BAD_SIDE_BY_SIDE;
+    }
+  }
+  return ERR_OK;
+}
+
+
+
+
+
+//=============================================================================
+// Extract parameters on the MLX90640 device
+//=============================================================================
+eERRORRESULT MLX90640_ExtractDeviceParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump, bool dumpEEPROM)
+{
+#ifdef CHECK_NULL_PARAM
+  if (pComp == NULL) return ERR__PARAMETER_ERROR;
+  if (pComp->Params == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  eERRORRESULT Error;
+
+  //--- Dump EEPROM ---
+  if (dumpEEPROM)
+  {
+    if (eepromDump == NULL) return ERR__NULL_BUFFER; // No pointer to EEPROM struct so impossible to dump the EEPROM
+    Error = MLX90640_DumpEEPROM(pComp, eepromDump);  // Dump EEPROM if asked
+    if (Error != ERR_OK) return Error;               // If there is an error while calling MLX90640_DumpEEPROM() then return the Error
+  }
+
+  //--- Check EEPROM ---
+  if (eepromDump != NULL)
+  {
+    uint16_t Value = eepromDump->Words[EepMLX90640_DeviceOption - EepMLX90640_StartAddress] & 0x000B;
+    if (Value != 0x0009) return ERR__UNKNOWN_ELEMENT;
+  }
+  
+  //--- Limit EEPROM I2C clock if no EEPROM dump ---
+  if ((eepromDump == NULL) && (pComp->I2C_ClockSpeed > MLX90640_I2CCLOCK_FM_MAX))
+  {
+    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, MLX90640_I2CCLOCK_FM_MAX); // Init the I2C with a safe SCL clock speed for EEPROM operations
+    if (Error != ERR_OK) return Error;                                           // If there is an error while calling fnI2C_Init() then return the Error
+  }  
+
+  //=== Extract parameters ===
+  pComp->InternalConfig &= MLX90640_DEV_NOT_PARAMETERIZED_SET;
+  Error = __MLX90640_ExtractVDDParameters(pComp, eepromDump);               // Extract Vdd parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractVDDParameters() then return the Error
+  EXT2_PWM_High;
+  Error = __MLX90640_ExtractPTATParameters(pComp, eepromDump);              // Extract PTAT parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractPTATParameters() then return the Error
+  EXT2_PWM_Low;
+  Error = __MLX90640_ExtractPixelsOffsetParameters(pComp, eepromDump);      // Extract offsets of each pixels parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractPixelsOffsetParameters() then return the Error
+  EXT2_PWM_High;
+  Error = __MLX90640_ExtractILchessParameters(pComp, eepromDump);           // Extract IL chess parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractILchessParameters() then return the Error
+  EXT2_PWM_Low;
+  Error = __MLX90640_ExtractPixelsSensitivityParameters(pComp, eepromDump); // Extract Pixels sensitivity parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractPixelsSensitivityParameters() then return the Error
+  EXT2_PWM_High;
+  Error = __MLX90640_ExtractKtaCoeffPixelsParameters(pComp, eepromDump);    // Extract Kta coefficients of each pixels parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractKtaCoeffPixelsParameters() then return the Error
+  EXT2_PWM_Low;
+  Error = __MLX90640_ExtractKvCoeffPixelsParameters(pComp, eepromDump);     // Extract Kv coefficients of each pixels parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractKvCoeffPixelsParameters() then return the Error
+  EXT2_PWM_High;
+  Error = __MLX90640_ExtractKsToParameters(pComp, eepromDump);              // Extract KsTo parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractKsToParameters() then return the Error
+  EXT2_PWM_Low;
+  Error = __MLX90640_ExtractMiscellaneousParameters(pComp, eepromDump);     // Extract miscellaneous parameters from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractMiscellaneousParameters() then return the Error
+  EXT2_PWM_High;
+  Error = __MLX90640_ExtractDefectivePixels(pComp, eepromDump);             // Extract defective pixels from EEPROM dump or directly on device
+  if (Error != ERR_OK) return Error;                                        // If there is an error while calling __MLX90640_ExtractDefectivePixels() then return the Error
+  EXT2_PWM_Low;
+
+  pComp->InternalConfig |= MLX90640_DEV_PARAMETERIZED;                      // Device is parameterized
+  
+  //--- Return to the original I2C clock if no EEPROM dump ---
+  if ((eepromDump == NULL) && (pComp->I2C_ClockSpeed > MLX90640_I2CCLOCK_FM_MAX))
+  {
+    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2C_ClockSpeed); // Re-init the I2C with the desired SCL clock speed
+  }
+  return ERR_OK;
+}
