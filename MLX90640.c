@@ -24,10 +24,63 @@ extern "C" {
 /// @endcond
 //-----------------------------------------------------------------------------
 
+
+
+
+
+//=============================================================================
+// Prototypes for private functions
+//=============================================================================
+// Detect the byte order of the MCU
+static uint16_t MLX90640_DetectByteOrder(void);
+
+// Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
+static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address);
+
+// Calculate and store Vdd parameters on the MLX90640 device
+static void __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store Ambient Temperature coefficients parameters on the MLX90640 device
+static void __MLX90640_ExtractPTATParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store Pixels Offset parameters on the MLX90640 device
+static void __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store ILchess parameters on the MLX90640 device
+static void __MLX90640_ExtractILchessParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store Pixels Sensitivity parameters on the MLX90640 device
+static void __MLX90640_ExtractPixelsSensitivityParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store Kta Coefficients Pixels parameters on the MLX90640 device
+static void __MLX90640_ExtractKtaCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store Kv Coefficients Pixels parameters on the MLX90640 device
+static void __MLX90640_ExtractKvCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store KsTo parameters on the MLX90640 device
+static void __MLX90640_ExtractKsToParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Calculate and store Miscellaneous parameters on the MLX90640 device
+static void __MLX90640_ExtractMiscellaneousParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+// Extract defective pixels from the MLX90640 device
+static eERRORRESULT __MLX90640_ExtractDefectivePixels(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
+
+#if !defined(MLX90640_PRECALCULATE_PIXELS_COEFFS)
+// Calculate and return a Pixel Offset on the MLX90640 device
+static float __MLX90640_Extract1PixelOffsetParameter(MLX90640 *pComp, size_t y, size_t x);
+// Calculate and return a Pixel Sensitivity on the MLX90640 device
+static float __MLX90640_Extract1PixelSensitivityParameter(MLX90640 *pComp, size_t y, size_t x);
+// Calculate and return Kta Coefficient of a Pixel on the MLX90640 device
+static float __MLX90640_ExtractKtaCoeff1PixelParameter(MLX90640 *pComp, size_t y, size_t x);
+// Calculate and return Kv Coefficients of a Pixel on the MLX90640 device
+static float __MLX90640_ExtractKvCoeff1PixelParameter(MLX90640 *pComp, size_t y, size_t x);
+#endif
+
+// Get the Vdd voltage an Ambient Temperature of the frame on the MLX90640 device
+static eERRORRESULT __MLX90640_GetVddAndTa(MLX90640 *pComp, MLX90640_FrameData* frameData, float* deltaVdd3V3Frame, float* deltaTaFrame);
+#if (MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT > 1)
+// Apply a moving average filter on the PixGain_Cp_SPx of the frame
+static void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCPSP1, MLX90640_FrameTo *result);
+#else
+#  define __MLX90640_MovingAverageFilter(a,b,c)
+#endif
+//-----------------------------------------------------------------------------
 // Choose one of the following for the fourth root
 #define ftrtf(value)  ( sqrtf(sqrtf(value)) )  // Apply a successive square root for the fourth root
 //#define ftrtf(value)  ( powf((value),0.25f) ) // Apply a x^(1/4) for the fourth root
-
 //-----------------------------------------------------------------------------
 
 
@@ -36,9 +89,9 @@ extern "C" {
 
 //**********************************************************************************************************************************************************
 //=============================================================================
-// Detect the byte order of the MCU
+// [STATIC] Detect the byte order of the MCU
 //=============================================================================
-static uint16_t MLX90640_DetectByteOrder(void)
+uint16_t MLX90640_DetectByteOrder(void)
 {
   uint16_t x = 1 | (((uint16_t)2) << (16 - 8));
   uint8_t *cp = (uint8_t*)&x;
@@ -159,8 +212,8 @@ eERRORRESULT MLX90640_GetDeviceID(MLX90640 *pComp, eMLX90640_Devices* device, ui
 
 
 //**********************************************************************************************************************************************************
-// Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
-static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address)
+// [STATIC] Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
+eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
@@ -430,9 +483,9 @@ eERRORRESULT MLX90640_ChangeI2Caddress(MLX90640 *pComp, uint8_t newAddress)
 
 //**********************************************************************************************************************************************************
 //=============================================================================
-// Calculate and store Vdd parameters on the MLX90640 device
+// [STATIC] Calculate and store Vdd parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   int16_t Kv_Vdd;
   int16_t Vdd_25;
@@ -451,9 +504,9 @@ static void __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *ee
 
 
 //=============================================================================
-// Calculate and store Ambient Temperature coefficients parameters on the MLX90640 device
+// [STATIC] Calculate and store Ambient Temperature coefficients parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractPTATParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractPTATParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   int16_t Kv_PTAT = 0;
   int16_t Kt_PTAT = 0;
@@ -475,9 +528,9 @@ static void __MLX90640_ExtractPTATParameters(MLX90640 *pComp, MLX90640_EEPROM *e
 
 
 //=============================================================================
-// Calculate and store Pixels Offset parameters on the MLX90640 device
+// [STATIC] Calculate and store Pixels Offset parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   uint16_t OffsetCPsp0;
   int16_t OffsetCPdelta;
@@ -546,9 +599,9 @@ static void __MLX90640_ExtractPixelsOffsetParameters(MLX90640 *pComp, MLX90640_E
 
 
 //=============================================================================
-// Calculate and store ILchess parameters on the MLX90640 device
+// [STATIC] Calculate and store ILchess parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractILchessParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractILchessParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   int16_t ILchessC1;
   int16_t ILchessC2;
@@ -570,9 +623,9 @@ static void __MLX90640_ExtractILchessParameters(MLX90640 *pComp, MLX90640_EEPROM
 
 
 //=============================================================================
-// Calculate and store Pixels Sensitivity parameters on the MLX90640 device
+// [STATIC] Calculate and store Pixels Sensitivity parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractPixelsSensitivityParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractPixelsSensitivityParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   uint16_t AlphaScale;
   uint16_t AlphaCPsp0;
@@ -646,9 +699,9 @@ static void __MLX90640_ExtractPixelsSensitivityParameters(MLX90640 *pComp, MLX90
 
 
 //=============================================================================
-// Calculate and store Kta Coefficients Pixels parameters on the MLX90640 device
+// [STATIC] Calculate and store Kta Coefficients Pixels parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractKtaCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractKtaCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   int16_t KtaCP;
   uint16_t KtaScale1;
@@ -690,9 +743,9 @@ static void __MLX90640_ExtractKtaCoeffPixelsParameters(MLX90640 *pComp, MLX90640
 
 
 //=============================================================================
-// Calculate and store Kv Coefficients Pixels parameters on the MLX90640 device
+// [STATIC] Calculate and store Kv Coefficients Pixels parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractKvCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractKvCoeffPixelsParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   int16_t KvCP;
   uint16_t KvScale;
@@ -728,9 +781,9 @@ static void __MLX90640_ExtractKvCoeffPixelsParameters(MLX90640 *pComp, MLX90640_
 
 
 //=============================================================================
-// Calculate and store KsTo parameters on the MLX90640 device
+// [STATIC] Calculate and store KsTo parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractKsToParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractKsToParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   uint16_t Step;
   uint16_t CT3;
@@ -768,9 +821,9 @@ static void __MLX90640_ExtractKsToParameters(MLX90640 *pComp, MLX90640_EEPROM *e
 
 
 //=============================================================================
-// Calculate and store Miscellaneous parameters on the MLX90640 device
+// [STATIC] Calculate and store Miscellaneous parameters on the MLX90640 device
 //=============================================================================
-static void __MLX90640_ExtractMiscellaneousParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+void __MLX90640_ExtractMiscellaneousParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   int16_t Gain;
   int16_t TGC;
@@ -789,9 +842,9 @@ static void __MLX90640_ExtractMiscellaneousParameters(MLX90640 *pComp, MLX90640_
 
 
 //=============================================================================
-// Extract defective pixels from the MLX90640 device
+// [STATIC] Extract defective pixels from the MLX90640 device
 //=============================================================================
-static eERRORRESULT __MLX90640_ExtractDefectivePixels(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
+eERRORRESULT __MLX90640_ExtractDefectivePixels(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
   size_t Current = 0;
   for (size_t z = 0; z < MLX90640_MAX_DEFECT_PIXELS; ++z) pComp->Params->DefectivePixels[z].Type = MLX90640_NOT_DETECTIVE;
@@ -893,9 +946,9 @@ eERRORRESULT MLX90640_ExtractDeviceParameters(MLX90640 *pComp, MLX90640_EEPROM *
 //**********************************************************************************************************************************************************
 #if !defined(MLX90640_PRECALCULATE_PIXELS_COEFFS)
 //=============================================================================
-// Calculate and return a Pixel Offset on the MLX90640 device
+// [STATIC] Calculate and return a Pixel Offset on the MLX90640 device
 //=============================================================================
-static float __MLX90640_Extract1PixelOffsetParameter(MLX90640 *pComp, size_t y, size_t x)
+float __MLX90640_Extract1PixelOffsetParameter(MLX90640 *pComp, size_t y, size_t x)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
@@ -927,9 +980,9 @@ static float __MLX90640_Extract1PixelOffsetParameter(MLX90640 *pComp, size_t y, 
 
 
 //=============================================================================
-// Calculate and return a Pixel Sensitivity on the MLX90640 device
+// [STATIC] Calculate and return a Pixel Sensitivity on the MLX90640 device
 //=============================================================================
-static float __MLX90640_Extract1PixelSensitivityParameter(MLX90640 *pComp, size_t y, size_t x)
+float __MLX90640_Extract1PixelSensitivityParameter(MLX90640 *pComp, size_t y, size_t x)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
@@ -965,9 +1018,9 @@ static float __MLX90640_Extract1PixelSensitivityParameter(MLX90640 *pComp, size_
 
 
 //=============================================================================
-// Calculate and return Kta Coefficient of a Pixel on the MLX90640 device
+// [STATIC] Calculate and return Kta Coefficient of a Pixel on the MLX90640 device
 //=============================================================================
-static float __MLX90640_ExtractKtaCoeff1PixelParameter(MLX90640 *pComp, size_t y, size_t x)
+float __MLX90640_ExtractKtaCoeff1PixelParameter(MLX90640 *pComp, size_t y, size_t x)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
@@ -998,9 +1051,9 @@ static float __MLX90640_ExtractKtaCoeff1PixelParameter(MLX90640 *pComp, size_t y
 
 
 //=============================================================================
-// Calculate and return Kv Coefficients of a Pixel on the MLX90640 device
+// [STATIC] Calculate and return Kv Coefficients of a Pixel on the MLX90640 device
 //=============================================================================
-static float __MLX90640_ExtractKvCoeff1PixelParameter(MLX90640 *pComp, size_t y, size_t x)
+float __MLX90640_ExtractKvCoeff1PixelParameter(MLX90640 *pComp, size_t y, size_t x)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
@@ -1030,9 +1083,9 @@ static float __MLX90640_ExtractKvCoeff1PixelParameter(MLX90640 *pComp, size_t y,
 
 //**********************************************************************************************************************************************************
 //=============================================================================
-// Get the Vdd voltage an Ambient Temperature of the frame on the MLX90640 device
+// [STATIC] Get the Vdd voltage an Ambient Temperature of the frame on the MLX90640 device
 //=============================================================================
-static eERRORRESULT __MLX90640_GetVddAndTa(MLX90640 *pComp, MLX90640_FrameData* frameData, float* deltaVdd3V3Frame, float* deltaTaFrame)
+eERRORRESULT __MLX90640_GetVddAndTa(MLX90640 *pComp, MLX90640_FrameData* frameData, float* deltaVdd3V3Frame, float* deltaTaFrame)
 {
 #ifdef CHECK_NULL_PARAM
   if ((pComp == NULL) || (frameData == NULL) || (deltaVdd3V3Frame == NULL) || (deltaTaFrame == NULL)) return ERR__PARAMETER_ERROR;
@@ -1055,9 +1108,9 @@ static eERRORRESULT __MLX90640_GetVddAndTa(MLX90640 *pComp, MLX90640_FrameData* 
 
 #if (MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT > 1)
 //=============================================================================
-// Apply a moving average filter on the PixGain_Cp_SPx of the frame
+// [STATIC] Apply a moving average filter on the PixGain_Cp_SPx of the frame
 //=============================================================================
-static void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCPSP1, MLX90640_FrameTo *result)
+void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCPSP1, MLX90640_FrameTo *result)
 {
   result->PixGainCPSP0_Filter[result->Filter0_Index] = *pixGainCPSP0; *pixGainCPSP0 = 0.0f;
   result->PixGainCPSP1_Filter[result->Filter1_Index] = *pixGainCPSP1; *pixGainCPSP1 = 0.0f;
@@ -1071,8 +1124,6 @@ static void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCP
   result->Filter0_Index++; if (result->Filter0_Index >= MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT) result->Filter0_Index = 0;
   result->Filter1_Index++; if (result->Filter1_Index >= MLX90640_MOVING_AVERAGE_FILTER_VALUES_COUNT) result->Filter1_Index = 0;
 }
-#else
-#  define __MLX90640_MovingAverageFilter(a,b,c)
 #endif
 
 

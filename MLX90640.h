@@ -1134,7 +1134,7 @@ struct MLX90640
 
 
 
-//! MCP251XFD Controller and CAN configuration structure
+//! MLX90640 configuration structure
 typedef struct MLX90640_Config
 {
   //--- Subpage configuration ---
