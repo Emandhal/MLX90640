@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file    MLX90640.c
  * @author  Fabien 'Emandhal' MAILLY
- * @version 1.0.2
+ * @version 1.1.0
  * @date    27/02/2021
  * @brief   MLX90640 driver
  *
@@ -12,16 +12,21 @@
 //-----------------------------------------------------------------------------
 #include "MLX90640.h"
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #include <math.h>
 #include <float.h>
+//-----------------------------------------------------------------------------
 #ifdef __cplusplus
-#include <cstdint>
+#  include <cstdint>
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
+//-----------------------------------------------------------------------------
+
+#ifdef USE_DYNAMIC_INTERFACE
+#  define GET_I2C_INTERFACE  pComp->I2C
+#else
+#  define GET_I2C_INTERFACE  &pComp->I2C
+#endif
+
 //-----------------------------------------------------------------------------
 
 
@@ -32,10 +37,10 @@ extern "C" {
 // Prototypes for private functions
 //=============================================================================
 // Detect the byte order of the MCU
-static uint16_t MLX90640_DetectByteOrder(void);
+static uint16_t __MLX90640_DetectByteOrder(void);
 
 // Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
-static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address);
+static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address, const bool usePolling, const eI2C_TransferType transferType);
 
 // Calculate and store Vdd parameters on the MLX90640 device
 static void __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
@@ -77,6 +82,8 @@ static void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCP
 #else
 #  define __MLX90640_MovingAverageFilter(a,b,c)
 #endif
+// Check the frame data received from the MLX90640 device
+eERRORRESULT __MLX90640_CheckFrameData(MLX90640_FrameData* frameData);
 //-----------------------------------------------------------------------------
 // Choose one of the following for the fourth root
 #define ftrtf(value)  ( sqrtf(sqrtf(value)) )  // Apply a successive square root for the fourth root
@@ -91,7 +98,7 @@ static void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCP
 //=============================================================================
 // [STATIC] Detect the byte order of the MCU
 //=============================================================================
-uint16_t MLX90640_DetectByteOrder(void)
+uint16_t __MLX90640_DetectByteOrder(void)
 {
   uint16_t x = 1 | (((uint16_t)2) << (16 - 8));
   uint8_t *cp = (uint8_t*)&x;
@@ -109,12 +116,15 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
 {
 #ifdef CHECK_NULL_PARAM
   if ((pComp == NULL) || (pConf == NULL)) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
 
   //--- Initialize internal config ---
-  pComp->InternalConfig = MLX90640_DEV_NOT_PARAMETERIZED | MLX90640_DetectByteOrder();
+  pComp->InternalConfig = MLX90640_DEV_NOT_PARAMETERIZED | __MLX90640_DetectByteOrder();
 
   //--- Check and adjust I2C SCL speed ---
   if (pComp->I2CclockSpeed > MLX90640_I2CCLOCK_FMp_MAX) return ERR__I2C_FREQUENCY_ERROR;                // Desired I2C SCL frequency too high for the device
@@ -123,19 +133,19 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
   if (SCLfreq > MLX90640_I2CCLOCK_FM_MAX) return ERR__I2C_FREQUENCY_ERROR;                              // If the SCL frequency is too high and the device will not be configured for FM+ mode then return an error
 
   //--- Initialize the interface ---
-  Error = pComp->fnI2C_Init(pComp->InterfaceDevice, SCLfreq);                // Init the I2C with a safe SCL clock speed for configuration
-  if (Error != ERR_OK) return Error;                                         // If there is an error while calling fnI2C_Init() then return the Error
-  if (MLX90640_IsReady(pComp) == false) return ERR__NO_DEVICE_DETECTED;      // Check device presence
+  Error = pI2C->fnI2C_Init(pI2C, SCLfreq);                                                              // Initialize the I2C with a safe SCL clock speed for configuration
+  if (Error != ERR_OK) return Error;                                                                    // If there is an error while calling fnI2C_Init() then return the Error
+  if (MLX90640_PollDevice(pComp) != ERR_OK) return ERR__NO_DEVICE_DETECTED;                             // Check device presence
 
   //--- Configure the I2C on device side ---
   Error = MLX90640_ConfigureDeviceI2C(pComp, pConf->I2C_FMpEnable, pConf->SetThresholdTo1V8, pConf->SetSDAdriverCurrentLimit);
-  if (Error != ERR_OK) return Error;                                         // If there is an error while calling MLX90640_ConfigureI2C() then return the Error
+  if (Error != ERR_OK) return Error;                                                                    // If there is an error while calling MLX90640_ConfigureI2C() then return the Error
 
   //--- Finally set the desired I2C SCL speed ---
-  if ((SCLfreq != pComp->I2CclockSpeed) && pConf->I2C_FMpEnable)             // The working SCL frequency differ from the configuration frequency then
+  if ((SCLfreq != pComp->I2CclockSpeed) && pConf->I2C_FMpEnable)                                        // The working SCL frequency differ from the configuration frequency then
   {
-    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2CclockSpeed); // Re-init the I2C with the desired SCL clock speed
-    if (Error != ERR_OK) return Error;                                       // If there is an error while calling fnI2C_Init() then return the Error
+    Error = pI2C->fnI2C_Init(pI2C, pComp->I2CclockSpeed);                                               // Re-initialize the I2C with the desired SCL clock speed
+    if (Error != ERR_OK) return Error;                                                                  // If there is an error while calling fnI2C_Init() then return the Error
   }
 
   //--- Configure the device ---
@@ -145,16 +155,27 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
 
 
 //=============================================================================
-// Is the MLX90640 device ready
+// Poll the MLX90640 device
 //=============================================================================
-bool MLX90640_IsReady(MLX90640 *pComp)
+eERRORRESULT MLX90640_PollDevice(MLX90640 *pComp)
 {
 #ifdef CHECK_NULL_PARAM
-  if (pComp == NULL) return false;
-  if (pComp->fnI2C_Transfer == NULL) return false;
+  if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
-  uint8_t ChipAddrW = pComp->I2Caddress & MLX90640_I2C_WRITE;
-  return (pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddrW, NULL, 0, true, true) == ERR_OK); // Send only the chip address and get the Ack flag
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2CInterface_Packet PacketDesc =
+  {
+    I2C_MEMBER(Config.Value) I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER),
+    I2C_MEMBER(ChipAddr    ) pComp->I2Caddress | I2C_READ_ORMASK,
+    I2C_MEMBER(Start       ) true,
+    I2C_MEMBER(pBuffer     ) NULL,
+    I2C_MEMBER(BufferSize  ) 0,
+    I2C_MEMBER(Stop        ) true,
+  };
+  return pI2C->fnI2C_Transfer(pI2C, &PacketDesc); // Send only the chip address and get the Ack flag
 }
 
 
@@ -213,22 +234,33 @@ eERRORRESULT MLX90640_GetDeviceID(MLX90640 *pComp, eMLX90640_Devices* device, ui
 
 //**********************************************************************************************************************************************************
 // [STATIC] Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
-eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address)
+static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address, const bool usePolling, const eI2C_TransferType transferType)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
-  uint8_t ChipAddrW = chipAddr & MLX90640_I2C_WRITE;
 
   //--- Create address ---
   uint8_t Address[sizeof(uint16_t)];
   for (int_fast8_t z = sizeof(uint16_t); --z >= 0;) Address[z] = (uint8_t)((address >> ((sizeof(uint16_t) - z - 1) * 8)) & 0xFF);
   //--- Send the address ---
-  Error = pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddrW, &Address[0], sizeof(uint16_t), true, false); // Transfer the address
-  if (Error == ERR__I2C_NACK) return ERR__NOT_READY;                                                            // If the device receive a NAK, then the device is not ready
-  if (Error == ERR__I2C_NACK_DATA) return ERR__I2C_INVALID_ADDRESS;                                             // If the device receive a NAK while transferring data, then this is an invalid address
+  I2CInterface_Packet PacketDesc =
+  {
+    I2C_MEMBER(Config.Value) (usePolling ? I2C_USE_POLLING : I2C_NO_POLLING) | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(transferType),
+    I2C_MEMBER(ChipAddr    ) chipAddr,
+    I2C_MEMBER(Start       ) true,
+    I2C_MEMBER(pBuffer     ) &Address[0],
+    I2C_MEMBER(BufferSize  ) sizeof(Address),
+    I2C_MEMBER(Stop        ) false,
+  };
+  Error = pI2C->fnI2C_Transfer(pI2C, &PacketDesc);                  // Transfer the address
+  if (Error == ERR__I2C_NACK) return ERR__NOT_READY;                // If the device receive a NAK, then the device is not ready
+  if (Error == ERR__I2C_NACK_DATA) return ERR__I2C_INVALID_ADDRESS; // If the device receive a NAK while transferring data, then this is an invalid address
   return Error;
 }
 
@@ -243,29 +275,98 @@ eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, co
 eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t* data, size_t size)
 {
 #ifdef CHECK_NULL_PARAM
-  if ((pComp == NULL) || (data == NULL)) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+  if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig)) return ERR__BUSY;
+  I2CInterface_Packet PacketDesc;
   eERRORRESULT Error;
   uint8_t DataBuf[2];
   uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
-  uint8_t ChipAddrR = (ChipAddrW | MLX90640_I2C_READ);
+  uint8_t ChipAddrR = (ChipAddrW | I2C_READ_ORMASK);
 
   //--- Read data ---
-  Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address); // Start a write at address with the device
-  if (Error == ERR__I2C_NACK) return ERR__NOT_READY;          // If the device receive a NAK, then the device is not ready
-  if (Error == ERR_OK)                                        // If there is no error while writing address then
+  Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, false, I2C_WRITE_THEN_READ_FIRST_PART); // Start a read at address with the device
+  if (Error == ERR_OK)                                                                               // If there is no error while writing address then
   {
+    PacketDesc.Config.Value = I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
+    PacketDesc.ChipAddr     = ChipAddrR;
+    PacketDesc.pBuffer      = &DataBuf[0];
+    PacketDesc.BufferSize   = sizeof(DataBuf);
     bool First = true;
     while (size > 0)
     {
-      Error = pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddrR, &DataBuf[0], sizeof(uint16_t), First, size == 1); // Restart at first data read transfer, get the data and stop transfer at last data
-      if (Error != ERR_OK) return Error;                                                                                 // If there is an error while calling fnI2C_Transfer() then return the Error
-      if (MLX90640_IS_LITTLE_ENDIAN(pComp->InternalConfig)) *data = ((uint16_t)DataBuf[0] << 8) | (uint16_t)DataBuf[1];  // The device's communication is in big endian then MSB first & LSB last in little endian
+      PacketDesc.Start = First;
+      PacketDesc.Stop  = (size == 1);
+      Error = pI2C->fnI2C_Transfer(pI2C, &PacketDesc);                 // Restart at first data read transfer, get the data and stop transfer at last data
+      if (Error == ERR__I2C_NACK_DATA) return ERR__I2C_COMM_ERROR;     // If the device receive a NAK while transferring data, then this is a communication error
+      if (Error != ERR_OK) return Error;                               // If there is an error while calling fnI2C_PacketTransfer() then return the Error
+      if (MLX90640_IS_LITTLE_ENDIAN(pComp->InternalConfig))
+           *data = ((uint16_t)DataBuf[0] << 8) | (uint16_t)DataBuf[1]; // The device's communication is in little endian then MSB first & LSB last in little endian
+      else *data = ((uint16_t)DataBuf[1] << 8) | (uint16_t)DataBuf[0]; // else the device's communication is in big endian then LSB first & MSB last in big endian
       First = false;
       data++;
       size--;
     }
+  }
+  return Error;
+}
+
+
+
+//=============================================================================
+// Read data with DMA from the MLX90640 device
+//=============================================================================
+eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, uint8_t* data, size_t size, I2C_Conf *configResult)
+{
+#ifdef CHECK_NULL_PARAM
+  if (pComp == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2CInterface_Packet PacketDesc;
+  eERRORRESULT Error;
+  uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
+  uint8_t ChipAddrR = (ChipAddrW | I2C_READ_ORMASK);
+
+  //--- Check DMA ---
+  if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig))
+  {
+    const uint16_t CurrTransactionNumber = MLX90640_TRANSACTION_NUMBER_GET(pComp->InternalConfig);
+    PacketDesc.Config.Value = I2C_USE_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER) | I2C_TRANSACTION_NUMBER_SET(CurrTransactionNumber);
+    PacketDesc.ChipAddr     = ChipAddrR;
+    PacketDesc.Start        = true;
+    PacketDesc.pBuffer      = NULL;
+    PacketDesc.BufferSize   = 0;
+    PacketDesc.Stop         = true;
+    Error = pI2C->fnI2C_Transfer(pI2C, &PacketDesc); // Send only the chip address and get the Ack flag, to return the status of the current transfer
+    if ((Error != ERR__I2C_BUSY) && (Error != ERR__I2C_OTHER_BUSY)) pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;
+    return Error;
+  }
+
+  //--- Read data ---
+  Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, true, I2C_WRITE_THEN_READ_FIRST_PART); // Start a read at address with the device
+  if (Error == ERR_OK)                                                                              // If there is no error while writing address then
+  {
+    const eI2C_EndianTransform EndianTransform = (MLX90640_IS_LITTLE_ENDIAN(pComp->InternalConfig) ? I2C_SWITCH_ENDIAN_16BITS : I2C_NO_ENDIAN_CHANGE);
+//    const eI2C_EndianTransform EndianTransform = I2C_NO_ENDIAN_CHANGE;
+    PacketDesc.Config.Value = I2C_USE_POLLING | I2C_ENDIAN_TRANSFORM_SET(EndianTransform) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
+    PacketDesc.ChipAddr     = ChipAddrR;
+    PacketDesc.pBuffer      = data;
+    PacketDesc.BufferSize   = size;
+    PacketDesc.Start        = true;
+    PacketDesc.Stop         = true;
+    Error = pI2C->fnI2C_Transfer(pI2C, &PacketDesc); // Restart at first data read transfer, get the data and stop transfer at last data
+    configResult->Value = PacketDesc.Config.Value;   // Return the packet configuration result
+    if (Error != ERR__I2C_OTHER_BUSY) pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;
+    if (Error == ERR__I2C_BUSY) pComp->InternalConfig |= MLX90640_DMA_TRANSFER_IN_PROGRESS;
+    MLX90640_TRANSACTION_NUMBER_CLEAR(pComp->InternalConfig);
+    pComp->InternalConfig |= MLX90640_TRANSACTION_NUMBER_SET(I2C_TRANSACTION_NUMBER_GET(PacketDesc.Config.Value));
   }
   return Error;
 }
@@ -278,35 +379,47 @@ eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t
 eERRORRESULT MLX90640_WriteData(MLX90640 *pComp, const uint16_t address, const uint16_t* data, size_t size)
 {
 #ifdef CHECK_NULL_PARAM
-  if ((pComp == NULL) || (data == NULL)) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+  if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig)) return ERR__BUSY;
+  I2CInterface_Packet PacketDesc;
   eERRORRESULT Error;
   uint8_t DataBuf[2];
   uint16_t* pData = (uint16_t*)data;
-  uint8_t ChipAddr = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
+  uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
 
   //--- Program Address ---
-  Error = __MLX90640_WriteAddress(pComp, ChipAddr, address); // Start a write at address with the device
-  if (Error == ERR__I2C_NACK) return ERR__NOT_READY;         // If the device receive a NAK, then the device is not ready
-  if (Error == ERR_OK)                                       // If there is no error while writing address then
+  Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, false, I2C_WRITE_THEN_WRITE_FIRST_PART); // Start a write at address with the device
+  if (Error == ERR_OK)                                                                                // If there is no error while writing address then
+  {
+    PacketDesc.Config.Value = I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_WRITE_SECOND_PART);
+    PacketDesc.ChipAddr     = ChipAddrW;
+    PacketDesc.Start        = false;
+    PacketDesc.pBuffer      = &DataBuf[0];
+    PacketDesc.BufferSize   = sizeof(DataBuf);
     while (size > 0)
     {
       if (MLX90640_IS_LITTLE_ENDIAN(pComp->InternalConfig))
       {
-        DataBuf[0] = (uint8_t)((*pData >> 8) & 0xFF);          // The device's communication is in big endian then MSB first
-        DataBuf[1] = (uint8_t)((*pData >> 0) & 0xFF);          // LSB last
+        DataBuf[0] = (uint8_t)((*pData >> 8) & 0xFF);  // The device's communication is in big endian then MSB first
+        DataBuf[1] = (uint8_t)((*pData >> 0) & 0xFF);  // LSB last
       }
       else
       {
-        DataBuf[0] = (uint8_t)((*pData >> 0) & 0xFF);          // The device's communication is in big endian too so don't change endianness, then MSB first
-        DataBuf[1] = (uint8_t)((*pData >> 8) & 0xFF);          // LSB last
+        DataBuf[0] = (uint8_t)((*pData >> 0) & 0xFF);  // The device's communication is in big endian too so don't change endianness, then LSB first
+        DataBuf[1] = (uint8_t)((*pData >> 8) & 0xFF);  // MSB last
       }
-      Error = pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddr, &DataBuf[0], sizeof(uint16_t), false, size == 1); // Continue the transfer by sending the data and stop transfer at last data (chip address will not be used)
-      if (Error != ERR_OK) return Error;                                                                                // If there is an error while calling fnI2C_Transfer() then return the Error
+      PacketDesc.Stop = (size == 1);
+      Error = pI2C->fnI2C_Transfer(pI2C, &PacketDesc); // Continue the transfer by sending the data and stop transfer at last data (chip address will not be used)
+      if (Error != ERR_OK) return Error;               // If there is an error while calling fnI2C_PacketTransfer() then return the Error
       pData++;
       size--;
     }
+  }
   return Error;
 }
 
@@ -318,25 +431,29 @@ eERRORRESULT MLX90640_WriteData(MLX90640 *pComp, const uint16_t address, const u
 eERRORRESULT MLX90640_DumpEEPROM(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
 {
 #ifdef CHECK_NULL_PARAM
-  if (eepromDump == NULL) return ERR__PARAMETER_ERROR;
+  if ((pComp == NULL) || (eepromDump == NULL)) return ERR__PARAMETER_ERROR;
+#endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE;
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
 
   //--- Limit EEPROM I2C clock ---
   if (pComp->I2CclockSpeed > MLX90640_I2CCLOCK_FM_MAX)
   {
-    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, MLX90640_I2CCLOCK_FM_MAX); // Init the I2C with a safe SCL clock speed for EEPROM operations
-    if (Error != ERR_OK) return Error;                                           // If there is an error while calling fnI2C_Init() then return the Error
+    Error = pI2C->fnI2C_Init(pI2C, MLX90640_I2CCLOCK_FM_MAX); // Initialize the I2C with a safe SCL clock speed for EEPROM operations
+    if (Error != ERR_OK) return Error;                        // If there is an error while calling fnI2C_Init() then return the Error
   }
 
   //--- Read EEPROM data ---
   Error = MLX90640_ReadData(pComp, EepMLX90640_StartAddress, &eepromDump->Words[0], sizeof(MLX90640_EEPROM) / sizeof(uint16_t));
-  if (Error != ERR_OK) return Error;                                             // If there is an error while calling MLX90640_ReadData() then return the Error
+  if (Error != ERR_OK) return Error;                          // If there is an error while calling MLX90640_ReadData() then return the Error
 
   //--- Return to the original I2C clock ---
   if (pComp->I2CclockSpeed > MLX90640_I2CCLOCK_FM_MAX)
   {
-    Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2CclockSpeed);     // Re-init the I2C with the desired SCL clock speed
+    Error = pI2C->fnI2C_Init(pI2C, pComp->I2CclockSpeed);     // Re-initialize the I2C with the desired SCL clock speed
   }
   return Error;
 }
@@ -366,23 +483,7 @@ eERRORRESULT MLX90640_GetFrameData(MLX90640 *pComp, MLX90640_FrameData* frameDat
   if (Error != ERR_OK) return Error;                                            // If there is an error while calling MLX90640_WriteRegister() then return the Error
 
   //--- Check data ---
-  uint8_t CurrSubPage = MLX90640_LAST_SUBPAGE_GET(frameData->StatusReg.Status); // Get current subpage, i.e. this frame data subpage
-  for (int y = MLX90640_ROW_COUNT; --y >= 0;)
-    if ((frameData->FrameYX[y][0] == 0x7FFF) && ((y & 0x1) == CurrSubPage)) return ERR__BAD_DATA;
-  if (frameData->AuxWords[0x00] == 0x7FFF) return ERR__BAD_DATA;
-  for (size_t z = 0x08; z < 0x21; ++z)
-  {
-    if (z == 0x13) continue;
-    if (z == 0x17) continue;
-    if (frameData->AuxWords[z] == 0x7FFF) return ERR__BAD_DATA;
-  }
-  for (size_t z = 0x28; z < 0x41; ++z)
-  {
-    if (z == 0x33) continue;
-    if (z == 0x37) continue;
-    if (frameData->AuxWords[z] == 0x7FFF) return ERR__BAD_DATA;
-  }
-  return ERR_OK;
+  return __MLX90640_CheckFrameData(frameData);
 }
 
 
@@ -1129,6 +1230,32 @@ void __MLX90640_MovingAverageFilter(float *pixGainCPSP0, float *pixGainCPSP1, ML
 
 
 //=============================================================================
+// [STATIC] Check the frame data received from the MLX90640 device
+//=============================================================================
+eERRORRESULT __MLX90640_CheckFrameData(MLX90640_FrameData* frameData)
+{
+  const uint8_t CurrSubPage = MLX90640_LAST_SUBPAGE_GET(frameData->StatusReg.Status); // Get current subpage, i.e. this frame data subpage
+  for (int y = MLX90640_ROW_COUNT; --y >= 0;)
+    if ((frameData->FrameYX[y][0] == 0x7FFF) && ((y & 0x1) == CurrSubPage)) return ERR__BAD_DATA;
+  if (frameData->AuxWords[0x00] == 0x7FFF) return ERR__BAD_DATA;
+  for (size_t z = 0x08; z < 0x21; ++z)
+  {
+    if (z == 0x13) continue;
+    if (z == 0x17) continue;
+    if (frameData->AuxWords[z] == 0x7FFF) return ERR__BAD_DATA;
+  }
+  for (size_t z = 0x28; z < 0x41; ++z)
+  {
+    if (z == 0x33) continue;
+    if (z == 0x37) continue;
+    if (frameData->AuxWords[z] == 0x7FFF) return ERR__BAD_DATA;
+  }
+  return ERR_OK;
+}
+
+
+
+//=============================================================================
 // Calculate Object Temperature of the frame on the MLX90640 device
 //=============================================================================
 eERRORRESULT MLX90640_CalculateTo(MLX90640 *pComp, MLX90640_FrameData* frameData, float emissivity, float tr, MLX90640_FrameTo *result)
@@ -1259,10 +1386,10 @@ eERRORRESULT MLX90640_CorrectBadPixels(MLX90640 *pComp, MLX90640_FrameTo *result
       uint_fast16_t ValCount = 0;
       size_t x = pParams->DefectivePixels[z].X;
       size_t y = pParams->DefectivePixels[z].Y;
-      if (pParams->DefectivePixels[z].X >                     0 ) { CorrectedValue += result->PixelYX[y][x-1] ; ++ValCount; }
-      if (pParams->DefectivePixels[z].X < (MLX90640_COL_COUNT-1)) { CorrectedValue += result->PixelYX[y][x+1] ; ++ValCount; }
-      if (pParams->DefectivePixels[z].Y >                     0 ) { CorrectedValue += result->PixelYX[y-1][x] ; ++ValCount; }
-      if (pParams->DefectivePixels[z].Y < (MLX90640_ROW_COUNT-1)) { CorrectedValue += result->PixelYX[y+1][x] ; ++ValCount; }
+      if (pParams->DefectivePixels[z].X >                     0 ) { CorrectedValue += result->PixelYX[y][x-1]; ++ValCount; }
+      if (pParams->DefectivePixels[z].X < (MLX90640_COL_COUNT-1)) { CorrectedValue += result->PixelYX[y][x+1]; ++ValCount; }
+      if (pParams->DefectivePixels[z].Y >                     0 ) { CorrectedValue += result->PixelYX[y-1][x]; ++ValCount; }
+      if (pParams->DefectivePixels[z].Y < (MLX90640_ROW_COUNT-1)) { CorrectedValue += result->PixelYX[y+1][x]; ++ValCount; }
       result->PixelYX[y][x] = CorrectedValue / (float)ValCount;
     }
   return ERR_OK;
@@ -1272,12 +1399,134 @@ eERRORRESULT MLX90640_CorrectBadPixels(MLX90640 *pComp, MLX90640_FrameTo *result
 
 
 
+//**********************************************************************************************************************************************************
+//=============================================================================
+// Get Frame To by polling on the MLX90640 device (asynchronous)
+//=============================================================================
+eERRORRESULT MLX90640_PollFrameTo(MLX90640 *pComp, MLX90640_FramePolling *result)
+{
+  I2C_Conf TransferConfigResult;
+  eERRORRESULT Error = ERR_OK;
+  bool NoDMA = false;
+  eMLX90640_LastMeasured OtherSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame)); // Select other subframe
+  if ((result->PollingState[result->LastSubFrame] == MLX90640_POLLING_WAIT_FRAME_AVAILABLE)       // Current subframe wait for new frame available?
+   || (result->PollingState[result->LastSubFrame] == MLX90640_POLLING_LAST_IS_ERROR))             // or last is error?
+  {
+    MLX90640_Status RegStatus;
+    Error = MLX90640_ReadRegister(pComp, RegMLX90640_Status, &RegStatus.Status);
+    if (Error != ERR_OK) return Error;                                                            // If there is an error while calling MLX90640_ReadRegister() then return no frame available
+    if ((RegStatus.Status & MLX90640_NEW_DATA_AVAILABLE) > 0)                                     // A new frame is available?
+    {
+      //--- Read status register ---
+      result->LastSubFrame = MLX90640_LAST_SUBPAGE_GET(RegStatus.Status);                         // Get current subpage, i.e. this frame data subpage
+      result->SubFramesData[result->LastSubFrame].StatusReg.Status = RegStatus.Status;            // Save subframe status
+      //--- Clear status register ---
+      Error = MLX90640_WriteRegister(pComp, RegMLX90640_Status, MLX90640_CLEAR_DEVICE_STATUS);
+      if (Error != ERR_OK) return Error;                                                          // If there is an error while calling MLX90640_WriteRegister() then return the Error
+      //--- Start getting the subframe data (with DMA) ---
+      Error = MLX90640_ReadDataWithDMA(pComp, RamMLX90640_StartAddress, &result->SubFramesData[result->LastSubFrame].Bytes[0], sizeof(MLX90640_FrameData) - sizeof(uint16_t), &TransferConfigResult);
+      if (Error == ERR__I2C_BUSY)                                                                 // DMA in progress
+      {
+        pComp->InternalConfig |= MLX90640_DMA_TRANSFER_IN_PROGRESS;                               // Flag DMA transfer in progress
+        result->PollingState[result->LastSubFrame] = MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS;
+        return ERR__BUSY;
+      }
+      else if (Error == ERR_OK)                                                                   // No DMA used for the transfer?
+      {                                                                                           // Calculate data Frame To of the subframe directly
+        pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;                        // Set DMA no used by the driver
+        if (I2C_ENDIAN_TRANSFORM_GET(TransferConfigResult.Value) != I2C_ENDIAN_RESULT_GET(TransferConfigResult.Value)) // No endian change during transfer?
+             result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_SWAP_DATA;        // Next swap data
+        else result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_CHECK_FRAME_DATA; // else check frame data
+        OtherSubFrame = result->LastSubFrame;                                                     // Select the last subframe to be processed
+        result->LastSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));     // Exchange the last sub frame
+        NoDMA = true;
+      }
+      else                                                                                        // Error with the DMA
+      {
+        result->PollingState[result->LastSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;
+        result->LastError[result->LastSubFrame] = Error;
+        return Error;                                                                             // If there is an error while calling MLX90640_ReadDataWithDMA() then return the Error
+      }
+    }
+  }
+
+  //--- Do subframe processings ---
+  if ((result->PollingState[result->LastSubFrame] == MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS)   // A DMA is in progress?
+   || (result->PollingState[result->LastSubFrame] == MLX90640_POLLING_LAST_IS_ERROR) || NoDMA)    // or an error while DMA transfer or No DMA flag?
+  {
+    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_SWAP_DATA)
+    {
+      MLX90640_BigEndianToLittleEndian(&result->SubFramesData[OtherSubFrame].Words[0], (sizeof(MLX90640_FrameData) / sizeof(uint16_t)) - 1); // Correct endianness
+      result->PollingState[OtherSubFrame] = MLX90640_POLLING_NEXT_CHECK_FRAME_DATA;               // Next step is to check frame data
+      if (NoDMA == false) return ERR__BUSY;                                                       // Process still busy, frame not yet available. If no DMA, continue
+    }
+    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_CHECK_FRAME_DATA)
+    {
+      Error = __MLX90640_CheckFrameData(&result->SubFramesData[OtherSubFrame]);                   // Check frame data consistency
+      if (Error != ERR_OK)                                                                        // An error occurred?
+      {
+        result->PollingState[OtherSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;                     // Set polling state in error
+        result->LastError[OtherSubFrame]    = Error;                                              // Set last error
+        return Error;
+      }
+      result->PollingState[OtherSubFrame] = MLX90640_POLLING_NEXT_CALCULATE_FRAME_TO;             // Next step is to calculate Frame To
+      if (NoDMA == false) return ERR__BUSY;                                                       // Process still busy, frame not yet available. If no DMA, continue
+    }
+    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_CALCULATE_FRAME_TO)
+    {
+      Error = MLX90640_CalculateTo(pComp, &result->SubFramesData[OtherSubFrame], result->Emissivity, result->Tr, &result->Result); // Calculate Frame To
+      if (Error != ERR_OK)                                                                        // An error occured?
+      {
+        result->PollingState[OtherSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;                     // Set polling state in error
+        result->LastError[OtherSubFrame]    = Error;                                              // Set last error
+        return Error;
+      }
+      result->PollingState[OtherSubFrame] = MLX90640_POLLING_NEXT_CORRECT_BAD_PIXELS;             // Next step is to correct bad pixels
+      if (NoDMA == false) return ERR__BUSY;                                                       // Process still busy, frame not yet available. If no DMA, continue
+    }
+    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_CORRECT_BAD_PIXELS)
+    {
+      Error = MLX90640_CorrectBadPixels(pComp, &result->Result);                                  // Correct bad pixels
+      if (Error != ERR_OK)                                                                        // An error occurred?
+      {
+        result->PollingState[OtherSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;                     // Set polling state in error
+        result->LastError[OtherSubFrame]    = Error;                                              // Set last error
+        return Error;
+      }
+      result->PollingState[OtherSubFrame] = MLX90640_POLLING_WAIT_FRAME_AVAILABLE;                // Next step is to wait for a new subframe data available
+      return ERR_OK;                                                                              // Subframe finished, the user can do something with the Result
+    }
+  }
+
+  //--- Check DMA transfer status ---
+  if ((result->PollingState[result->LastSubFrame] == MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS)   // DMA transfer in progress?
+   && ((result->PollingState[OtherSubFrame] == MLX90640_POLLING_WAIT_FRAME_AVAILABLE)             // and (the other frame have finish its image process?
+    || (result->PollingState[OtherSubFrame] == MLX90640_POLLING_LAST_IS_ERROR)))                  //      or the other frame have an error while image process)?
+  {
+    Error = MLX90640_ReadDataWithDMA(pComp, RamMLX90640_StartAddress, &result->SubFramesData[result->LastSubFrame].Bytes[0], sizeof(MLX90640_FrameData) - sizeof(uint16_t), &TransferConfigResult);
+    if (Error == ERR_OK)                                                                          // DMA transfer finished?
+    {
+      pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;                          // Set DMA no used by the driver
+      if (I2C_ENDIAN_TRANSFORM_GET(TransferConfigResult.Value) != I2C_ENDIAN_RESULT_GET(TransferConfigResult.Value)) // No endian change during transfer?
+           result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_SWAP_DATA;          // Next swap data
+      else result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_CHECK_FRAME_DATA;   // Else check frame data
+      result->LastSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));       // Exchange the last sub frame
+    }
+    else if (Error != ERR__I2C_BUSY)
+    {
+      result->PollingState[result->LastSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;
+      result->LastError[result->LastSubFrame] = Error;
+    }
+  }
+  return Error;
+}
+
+
+
+
+
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------

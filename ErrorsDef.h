@@ -35,13 +35,9 @@
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 
 
@@ -90,11 +86,20 @@ extern "C" {
     X(ERR__RECEIVE_ERROR       ,      , "Receive error"                                         ) \
     X(ERR__UNKNOWN_CHANNEL     ,      , "Unknown channel error"                                 ) \
     X(ERR__BAD_DATA            ,      , "Bad data"                                              ) \
+    X(ERR__BUSY                ,      , "Busy"                                                  ) \
+    X(ERR__EMPTY_DATA          ,      , "Empty data"                                            ) \
+    X(ERR__NOT_FOUND           ,      , "Not found"                                             ) \
+    X(ERR__INVALID_HANDLE      ,      , "Invalid handle"                                        ) \
+    X(ERR__ADDRESS_ALIGNMENT   ,      , "Address alignment error"                               ) \
+    X(ERR__READ_ERROR          ,      , "Read error"                                            ) \
+    X(ERR__WRITE_ERROR         ,      , "Write error"                                           ) \
+    X(ERR__DATA_MODULO         ,      , "Wrong data modulo for the operation"                   ) \
 /*  // Device mode                                                                              */\
     X(ERR__NOT_IN_SLEEP_MODE   , =  90, "Operation impossible in sleep mode"                    ) \
     X(ERR__ALREADY_IN_SLEEP    ,      , "Already in sleep mode"                                 ) \
     X(ERR__NOT_CONFIG_MODE     ,      , "Operation impossible in configuration mode"            ) \
     X(ERR__NEED_CONFIG_MODE    ,      , "Device not in configuration mode"                      ) \
+    X(ERR__CANNOT_GO_IDLE_STATE,      , "Cannot go in idle state"                               ) \
                                                                                                   \
 /*  //--- Devices errors ---                                                                    */\
 /*  // MCP251XFD errors                                                                         */\
@@ -107,6 +112,15 @@ extern "C" {
     X(ERR__FILTER_CONSISTENCY  ,      , "Filter inconsistency between Mask and filter"          ) \
     X(ERR__FILTER_TOO_LARGE    ,      , "Filter too large between filter and config"            ) \
     X(ERR__BYTE_COUNT_MODULO_4 ,      , "Byte count should be modulo 4"                         ) \
+/*  // SD card errors                                                                           */\
+    X(ERR__NO_CARD             ,      , "No card present"                                       ) \
+    X(ERR__UNUSABLE_CARD       ,      , "Unusable SD card"                                      ) \
+    X(ERR__CARD_ERROR          ,      , "SD card error"                                         ) \
+    X(ERR__CARD_COMMAND_ERROR  ,      , "SD card command error"                                 ) \
+    X(ERR__CARD_WRITE_PROTECTED,      , "SD card is write protected"                            ) \
+    X(ERR__CARD_ECC_FAIL       ,      , "SD card ECC fail"                                      ) \
+    X(ERR__CARD_OUT_OF_RANGE   ,      , "SD card out of range argument"                         ) \
+    X(ERR__CARD_STUCK_BUSY     ,      , "SD card busy for too long time"                        ) \
                                                                                                   \
 /*  //--- Interfaces errors ---                                                                 */\
 /*  // SPI errors                                                                               */\
@@ -115,8 +129,12 @@ extern "C" {
     X(ERR__SPI_CONFIG_ERROR    ,      , "SPI configuration error"                               ) \
     X(ERR__SPI_TIMEOUT         ,      , "SPI communication timeout"                             ) \
     X(ERR__SPI_FREQUENCY_ERROR ,      , "SPI frequency error"                                   ) \
+    X(ERR__SPI_OVERFLOW_ERROR  ,      , "SPI overflow error"                                    ) \
+    X(ERR__SPI_UNDERFLOW_ERROR ,      , "SPI underflow error"                                   ) \
+    X(ERR__SPI_BUSY            ,      , "SPI busy"                                              ) \
 /*  // I2C errors                                                                               */\
     X(ERR__I2C_NACK            , = 210, "Received a I2C not acknowledge"                        ) \
+    X(ERR__I2C_NACK_ADDR       ,      , "Received a I2C not acknowledge while transferring addr") \
     X(ERR__I2C_NACK_DATA       ,      , "Received a I2C not acknowledge while transferring data") \
     X(ERR__I2C_PARAMETER_ERROR ,      , "I2C parameter error"                                   ) \
     X(ERR__I2C_COMM_ERROR      ,      , "I2C communication error"                               ) \
@@ -126,6 +144,17 @@ extern "C" {
     X(ERR__I2C_INVALID_ADDRESS ,      , "I2C invalid address"                                   ) \
     X(ERR__I2C_INVALID_COMMAND ,      , "I2C invalid command"                                   ) \
     X(ERR__I2C_FREQUENCY_ERROR ,      , "I2C frequency error"                                   ) \
+    X(ERR__I2C_OVERFLOW_ERROR  ,      , "I2C overflow error"                                    ) \
+    X(ERR__I2C_UNDERFLOW_ERROR ,      , "I2C underflow error"                                   ) \
+    X(ERR__I2C_BUSY            ,      , "I2C busy"                                              ) \
+    X(ERR__I2C_OTHER_BUSY      ,      , "I2C busy by other transfer"                            ) \
+/*  // DMA errors                                                                               */\
+    X(ERR__DMA_NOT_CONFIGURED  , = 225, "DMA not configured"                                    ) \
+    X(ERR__DMA_ERROR           ,      , "DMA error"                                             ) \
+    X(ERR__DMA_OVERFLOW_ERROR  ,      , "DMA overflow error"                                    ) \
+    X(ERR__DMA_UNDERFLOW_ERROR ,      , "DMA underflow error"                                   ) \
+    X(ERR__DMA_WRITE_BUS_ERROR ,      , "DMA write bus error"                                   ) \
+    X(ERR__DMA_READ_BUS_ERROR  ,      , "DMA read bus error"                                    ) \
 /*  // Test error                                                                               */\
     X(ERR__TEST_ERROR          , = 255, "Test error"                                            )
 
@@ -143,6 +172,7 @@ typedef enum
 #endif
   ERRORS_TABLE
 #undef X
+  ERR__ERRORS_MAX, // Keep last
 } eERRORRESULT;
 
 
@@ -162,12 +192,8 @@ static const char* const ERR_ErrorStrings[] =
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* ERRORSDEF_H_ */

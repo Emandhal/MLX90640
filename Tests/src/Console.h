@@ -261,8 +261,8 @@ void __BinDump(ConsoleTx* pApi, const char* context, const void* src, unsigned i
 #else
   #define LOGDEBUG_(api, format, ...)           do{}while(false)
   #define LOGSPECIAL_(api, format, ...)         do{}while(false)
-  #define HEXDUM_P(api, context, src, size)     do{}while(false)
-  #define BINDUM_P(api, context, src, size)     do{}while(false)
+  #define HEXDUMP_(api, context, src, size)     do{}while(false)
+  #define BINDUMP_(api, context, src, size)     do{}while(false)
 #endif
 
 

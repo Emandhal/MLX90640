@@ -1,5 +1,3 @@
-:warning: WORK IN PROGRESS, ONLY PARAMETERS EXTRACTION HAVE BEEN TESTED YET!
-
 # MLX90640
 MLX90640 is a fully hardware independant **Driver** primarily aimed at embedded world
 
@@ -17,6 +15,7 @@ This driver has been designed to:
 * Prevent all configuration errors
 * Can be used with EEPROM data already extracted and saved in flash (reduce the use of RAM used)
 * Can be used with Parameters already calculated and saved in flash (reduce the use of RAM used)
+* Can be used with a DMA
 
 ## Limitations
 

@@ -32,15 +32,15 @@
       <framework-data>
         <options>
           <option id="common.boards" value="Add" config="" content-id="Atmel.ASF" />
+          <option id="common.services.delay" value="Add" config="" content-id="Atmel.ASF" />
           <option id="common.services.basic.gpio" value="Add" config="" content-id="Atmel.ASF" />
           <option id="common.services.ioport" value="Add" config="" content-id="Atmel.ASF" />
+          <option id="common.utils.stdio.stdio_serial" value="Add" config="" content-id="Atmel.ASF" />
           <option id="sam.drivers.mpu" value="Add" config="" content-id="Atmel.ASF" />
           <option id="sam.drivers.pio" value="Add" config="" content-id="Atmel.ASF" />
           <option id="sam.drivers.spi" value="Add" config="" content-id="Atmel.ASF" />
           <option id="sam.drivers.wdt" value="Add" config="" content-id="Atmel.ASF" />
           <option id="common.services.basic.twihs" value="Add" config="" content-id="Atmel.ASF" />
-          <option id="common.services.delay" value="Add" config="" content-id="Atmel.ASF" />
-          <option id="common.utils.stdio.stdio_serial" value="Add" config="" content-id="Atmel.ASF" />
           <option id="common.applications.user_application" value="Add" config="" content-id="Atmel.ASF" />
           <option id="sam.utils.cmsis.samv71.source.template" value="Add" config="" content-id="Atmel.ASF" />
         </options>
@@ -250,8 +250,6 @@
           <file path="src/ASF/sam/drivers/spi/spi.h" framework="" version="3.47.0" source="sam\drivers\spi\spi.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/sam/drivers/wdt/wdt.c" framework="" version="3.47.0" source="sam\drivers\wdt\wdt.c" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/sam/drivers/wdt/wdt.h" framework="" version="3.47.0" source="sam\drivers\wdt\wdt.h" changed="False" content-id="Atmel.ASF" />
-          <file path="src/ASF/sam/drivers/twihs/twihs.c" framework="" version="3.47.0" source="sam\drivers\twihs\twihs.c" changed="False" content-id="Atmel.ASF" />
-          <file path="src/ASF/sam/drivers/twihs/twihs.h" framework="" version="3.47.0" source="sam\drivers\twihs\twihs.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/sam/drivers/uart/uart.c" framework="" version="3.47.0" source="sam\drivers\uart\uart.c" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/sam/drivers/uart/uart.h" framework="" version="3.47.0" source="sam\drivers\uart\uart.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/common/services/delay/sam/cycle_counter.c" framework="" version="3.47.0" source="common\services\delay\sam\cycle_counter.c" changed="False" content-id="Atmel.ASF" />
@@ -261,15 +259,17 @@
           <file path="src/ASF/common/services/serial/sam_uart/uart_serial.h" framework="" version="3.47.0" source="common\services\serial\sam_uart\uart_serial.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/common/services/serial/serial.h" framework="" version="3.47.0" source="common\services\serial\serial.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/Config/conf_uart_serial.h" framework="" version="3.47.0" source="common\services\serial\sam_uart\module_config\conf_uart_serial.h" changed="False" content-id="Atmel.ASF" />
-          <file path="src/ASF/common/services/twi/sam_twihs/twihs_master.h" framework="" version="3.47.0" source="common\services\twi\sam_twihs\twihs_master.h" changed="False" content-id="Atmel.ASF" />
-          <file path="src/ASF/common/services/twi/twihs_master.h" framework="" version="3.47.0" source="common\services\twi\twihs_master.h" changed="False" content-id="Atmel.ASF" />
-          <file path="src/ASF/common/services/twi/sam_twihs/twihs_slave.h" framework="" version="3.47.0" source="common\services\twi\sam_twihs\twihs_slave.h" changed="False" content-id="Atmel.ASF" />
-          <file path="src/ASF/common/services/twi/twihs_slave.h" framework="" version="3.47.0" source="common\services\twi\twihs_slave.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/common/utils/stdio/read.c" framework="" version="3.47.0" source="common\utils\stdio\read.c" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/common/utils/stdio/write.c" framework="" version="3.47.0" source="common\utils\stdio\write.c" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/common/utils/stdio/stdio_serial/stdio_serial.h" framework="" version="3.47.0" source="common\utils\stdio\stdio_serial\stdio_serial.h" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/sam/drivers/usart/usart.c" framework="" version="3.47.0" source="sam\drivers\usart\usart.c" changed="False" content-id="Atmel.ASF" />
           <file path="src/ASF/sam/drivers/usart/usart.h" framework="" version="3.47.0" source="sam\drivers\usart\usart.h" changed="False" content-id="Atmel.ASF" />
+          <file path="src/ASF/sam/drivers/twihs/twihs.c" framework="" version="3.47.0" source="sam\drivers\twihs\twihs.c" changed="False" content-id="Atmel.ASF" />
+          <file path="src/ASF/sam/drivers/twihs/twihs.h" framework="" version="3.47.0" source="sam\drivers\twihs\twihs.h" changed="False" content-id="Atmel.ASF" />
+          <file path="src/ASF/common/services/twi/sam_twihs/twihs_master.h" framework="" version="3.47.0" source="common\services\twi\sam_twihs\twihs_master.h" changed="False" content-id="Atmel.ASF" />
+          <file path="src/ASF/common/services/twi/twihs_master.h" framework="" version="3.47.0" source="common\services\twi\twihs_master.h" changed="False" content-id="Atmel.ASF" />
+          <file path="src/ASF/common/services/twi/sam_twihs/twihs_slave.h" framework="" version="3.47.0" source="common\services\twi\sam_twihs\twihs_slave.h" changed="False" content-id="Atmel.ASF" />
+          <file path="src/ASF/common/services/twi/twihs_slave.h" framework="" version="3.47.0" source="common\services\twi\twihs_slave.h" changed="False" content-id="Atmel.ASF" />
         </files>
         <documentation help="http://asf.atmel.com/docs/3.47.0/common.applications.user_application.samv71_xplained_ultra/html/index.html" />
         <offline-documentation help="" />
@@ -339,14 +339,14 @@
       <Value>../src/config</Value>
       <Value>../src/ASF/sam/drivers/spi</Value>
       <Value>../src/ASF/sam/drivers/wdt</Value>
-      <Value>../src/ASF/sam/drivers/twihs</Value>
       <Value>../src/ASF/sam/drivers/uart</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/serial/sam_uart</Value>
       <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/common/services/twi</Value>
       <Value>../src/ASF/common/utils/stdio/stdio_serial</Value>
       <Value>../src/ASF/sam/drivers/usart</Value>
+      <Value>../src/ASF/sam/drivers/twihs</Value>
+      <Value>../src/ASF/common/services/twi</Value>
     </ListValues>
   </armgcc.compiler.directories.IncludePaths>
   <armgcc.compiler.optimization.level>Optimize for size (-Os)</armgcc.compiler.optimization.level>
@@ -391,14 +391,14 @@
       <Value>../src/config</Value>
       <Value>../src/ASF/sam/drivers/spi</Value>
       <Value>../src/ASF/sam/drivers/wdt</Value>
-      <Value>../src/ASF/sam/drivers/twihs</Value>
       <Value>../src/ASF/sam/drivers/uart</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/serial/sam_uart</Value>
       <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/common/services/twi</Value>
       <Value>../src/ASF/common/utils/stdio/stdio_serial</Value>
       <Value>../src/ASF/sam/drivers/usart</Value>
+      <Value>../src/ASF/sam/drivers/twihs</Value>
+      <Value>../src/ASF/common/services/twi</Value>
     </ListValues>
   </armgcc.assembler.general.IncludePaths>
   <armgcc.preprocessingassembler.general.AssemblerFlags>-DARM_MATH_CM7=true -DBOARD=SAMV71_XPLAINED_ULTRA -D__SAMV71Q21B__ -Dprintf=iprintf -Dscanf=iscanf</armgcc.preprocessingassembler.general.AssemblerFlags>
@@ -426,14 +426,14 @@
       <Value>../src/config</Value>
       <Value>../src/ASF/sam/drivers/spi</Value>
       <Value>../src/ASF/sam/drivers/wdt</Value>
-      <Value>../src/ASF/sam/drivers/twihs</Value>
       <Value>../src/ASF/sam/drivers/uart</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/serial/sam_uart</Value>
       <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/common/services/twi</Value>
       <Value>../src/ASF/common/utils/stdio/stdio_serial</Value>
       <Value>../src/ASF/sam/drivers/usart</Value>
+      <Value>../src/ASF/sam/drivers/twihs</Value>
+      <Value>../src/ASF/common/services/twi</Value>
     </ListValues>
   </armgcc.preprocessingassembler.general.IncludePaths>
 </ArmGcc>
@@ -484,18 +484,20 @@
       <Value>../src/ASF/sam/drivers/wdt</Value>
       <Value>../src/config</Value>
       <Value>../src/Interface</Value>
-      <Value>../src/ASF/sam/drivers/twihs</Value>
       <Value>../src/ASF/sam/drivers/uart</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/serial/sam_uart</Value>
       <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/common/services/twi</Value>
       <Value>../src/ASF/common/utils/stdio/stdio_serial</Value>
       <Value>../src/ASF/sam/drivers/usart</Value>
       <Value>../src/Drivers</Value>
       <Value>../..</Value>
       <Value>../src</Value>
       <Value>../../../../Utils</Value>
+      <Value>../src/ASF/sam/drivers/twihs</Value>
+      <Value>../src/ASF/common/services/twi</Value>
+      <Value>../src/Drivers/TWIHS</Value>
+      <Value>../src/Drivers/XDMAC</Value>
     </ListValues>
   </armgcc.compiler.directories.IncludePaths>
   <armgcc.compiler.optimization.level>Optimize (-O1)</armgcc.compiler.optimization.level>
@@ -542,14 +544,14 @@
       <Value>../src/config</Value>
       <Value>../src/ASF/sam/drivers/spi</Value>
       <Value>../src/ASF/sam/drivers/wdt</Value>
-      <Value>../src/ASF/sam/drivers/twihs</Value>
       <Value>../src/ASF/sam/drivers/uart</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/serial/sam_uart</Value>
       <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/common/services/twi</Value>
       <Value>../src/ASF/common/utils/stdio/stdio_serial</Value>
       <Value>../src/ASF/sam/drivers/usart</Value>
+      <Value>../src/ASF/sam/drivers/twihs</Value>
+      <Value>../src/ASF/common/services/twi</Value>
     </ListValues>
   </armgcc.assembler.general.IncludePaths>
   <armgcc.assembler.debugging.DebugLevel>Default (-g)</armgcc.assembler.debugging.DebugLevel>
@@ -578,14 +580,14 @@
       <Value>../src/config</Value>
       <Value>../src/ASF/sam/drivers/spi</Value>
       <Value>../src/ASF/sam/drivers/wdt</Value>
-      <Value>../src/ASF/sam/drivers/twihs</Value>
       <Value>../src/ASF/sam/drivers/uart</Value>
       <Value>../src/ASF/common/services/delay</Value>
       <Value>../src/ASF/common/services/serial/sam_uart</Value>
       <Value>../src/ASF/common/services/serial</Value>
-      <Value>../src/ASF/common/services/twi</Value>
       <Value>../src/ASF/common/utils/stdio/stdio_serial</Value>
       <Value>../src/ASF/sam/drivers/usart</Value>
+      <Value>../src/ASF/sam/drivers/twihs</Value>
+      <Value>../src/ASF/common/services/twi</Value>
     </ListValues>
   </armgcc.preprocessingassembler.general.IncludePaths>
   <armgcc.preprocessingassembler.debugging.DebugLevel>Default (-Wa,-g)</armgcc.preprocessingassembler.debugging.DebugLevel>
@@ -653,9 +655,15 @@
     <Folder Include="src\ASF\thirdparty\CMSIS\Lib\GCC\" />
     <Folder Include="src\config\" />
     <Folder Include="src\Drivers" />
+    <Folder Include="src\Drivers\TWIHS" />
+    <Folder Include="src\Drivers\XDMAC" />
     <Folder Include="src\Interface" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\I2C_Interface.h">
+      <SubType>compile</SubType>
+      <Link>src\Interface\I2C_Interface.h</Link>
+    </Compile>
     <Compile Include="..\MLX90640.c">
       <SubType>compile</SubType>
       <Link>src\Drivers\MLX90640.c</Link>
@@ -670,6 +678,24 @@
     <Compile Include="src\ANSIEscape_Lib.h">
       <SubType>compile</SubType>
     </Compile>
+    <None Include="src\ASF\common\services\twi\sam_twihs\twihs_master.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\common\services\twi\twihs_master.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\common\services\twi\sam_twihs\twihs_slave.h">
+      <SubType>compile</SubType>
+    </None>
+    <None Include="src\ASF\common\services\twi\twihs_slave.h">
+      <SubType>compile</SubType>
+    </None>
+    <Compile Include="src\ASF\sam\drivers\twihs\twihs.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <None Include="src\ASF\sam\drivers\twihs\twihs.h">
+      <SubType>compile</SubType>
+    </None>
     <Compile Include="src\config\Conf_MLX90640.h">
       <SubType>compile</SubType>
     </Compile>
@@ -678,6 +704,22 @@
     </Compile>
     <Compile Include="src\DriversParams.h">
       <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\Drivers\TWIHS\TWIHS_V71.c">
+      <SubType>compile</SubType>
+      <Link>src\Drivers\TWIHS\TWIHS_V71.c</Link>
+    </Compile>
+    <Compile Include="src\Drivers\TWIHS\TWIHS_V71.h">
+      <SubType>compile</SubType>
+      <Link>src\Drivers\TWIHS\TWIHS_V71.h</Link>
+    </Compile>
+    <Compile Include="src\Drivers\XDMAC\XDMAC_V71.c">
+      <SubType>compile</SubType>
+      <Link>src\Drivers\XDMAC\XDMAC_V71.c</Link>
+    </Compile>
+    <Compile Include="src\Drivers\XDMAC\XDMAC_V71.h">
+      <SubType>compile</SubType>
+      <Link>src\Drivers\XDMAC\XDMAC_V71.h</Link>
     </Compile>
     <Compile Include="src\StringTools.c">
       <SubType>compile</SubType>
@@ -703,18 +745,6 @@
     <Compile Include="src\ASF\common\services\serial\usart_serial.c">
       <SubType>compile</SubType>
     </Compile>
-    <None Include="src\ASF\common\services\twi\sam_twihs\twihs_master.h">
-      <SubType>compile</SubType>
-    </None>
-    <None Include="src\ASF\common\services\twi\twihs_master.h">
-      <SubType>compile</SubType>
-    </None>
-    <None Include="src\ASF\common\services\twi\sam_twihs\twihs_slave.h">
-      <SubType>compile</SubType>
-    </None>
-    <None Include="src\ASF\common\services\twi\twihs_slave.h">
-      <SubType>compile</SubType>
-    </None>
     <Compile Include="src\ASF\common\utils\stdio\read.c">
       <SubType>compile</SubType>
     </Compile>
@@ -724,12 +754,6 @@
     <Compile Include="src\ASF\common\utils\stdio\write.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\ASF\sam\drivers\twihs\twihs.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <None Include="src\ASF\sam\drivers\twihs\twihs.h">
-      <SubType>compile</SubType>
-    </None>
     <Compile Include="src\ASF\sam\drivers\uart\uart.c">
       <SubType>compile</SubType>
     </Compile>
@@ -1356,12 +1380,6 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\Interface\Console_V71Interface.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\Interface\I2C_V71InterfaceSync.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\Interface\I2C_V71InterfaceSync.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\main.c">

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file    TCA9543A.h
- * @author  FMA
+ * @author  Fabien 'Emandhal' MAILLY
  * @version 1.0.0
  * @date    27/02/2020
  * @brief   TCA9543A driver
@@ -41,44 +41,22 @@
 #include <stdlib.h>
 //-----------------------------------------------------------------------------
 #include "ErrorsDef.h"
-/// @cond 0
-/**INDENT-OFF**/
+#include "I2C_Interface.h"
+//-----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
-#endif
-/**INDENT-ON**/
-/// @endcond
-//-----------------------------------------------------------------------------
-
-#ifndef __PACKED__
-# ifndef __cplusplus
-#   define __PACKED__  __attribute__((packed))
-# else
-#   define __PACKED__
-# endif
-#endif
-
-#ifndef PACKITEM
-# ifndef __cplusplus
-#   define PACKITEM
-# else
-#   define PACKITEM  __pragma(pack(push, 1))
-# endif
-#endif
-
-#ifndef UNPACKITEM
-# ifndef __cplusplus
-#   define UNPACKITEM
-# else
-#   define UNPACKITEM  __pragma(pack(pop))
-# endif
+#  define __TCA9543A_PACKED__
+#  define TCA9543A_PACKITEM    __pragma(pack(push, 1))
+#  define TCA9543A_UNPACKITEM  __pragma(pack(pop))
+#else
+#  define __TCA9543A_PACKED__  __attribute__((packed))
+#  define TCA9543A_PACKITEM
+#  define TCA9543A_UNPACKITEM
 #endif
 //-----------------------------------------------------------------------------
 
 //! This macro is used to check the size of an object. If not, it will raise a "divide by 0" error at compile time
-#ifndef ControlItemSize
-#  define ControlItemSize(item, size)  enum { item##_size_must_be_##size##_bytes = 1 / (int)(!!(sizeof(item) == size)) }
-#endif
+#define TCA9543A_CONTROL_ITEM_SIZE(item, size)  enum { item##_size_must_be_##size##_bytes = 1 / (int)(!!(sizeof(item) == size)) }
 
 //-----------------------------------------------------------------------------
 
@@ -90,9 +68,6 @@ extern "C" {
 
 
 // Device definitions
-#define TCA9543A_I2C_READ   ( 0x01u ) //!< Standard I2C LSB bit to set
-#define TCA9543A_I2C_WRITE  ( 0xFEu ) //!< Standard I2C bit mask which clear the LSB
-
 #define TCA9543A_CHIPADDRESS_BASE  ( 0xE0u ) //!< TCA9543A chip base address
 #define TCA9543A_CHIPADDRESS_MASK  ( 0xF0u ) //!< TCA9543A chip base address
 
@@ -114,8 +89,8 @@ extern "C" {
 //********************************************************************************************************************
 
 //! Status Register
-PACKITEM
-typedef union __PACKED__ TCA9543A_Control_Register
+TCA9543A_PACKITEM
+typedef union __TCA9543A_PACKED__ TCA9543A_Control_Register
 {
   uint8_t Control;
   struct
@@ -128,8 +103,8 @@ typedef union __PACKED__ TCA9543A_Control_Register
     uint8_t     : 2; //!< 6-7
   } Bits;
 } TCA9543A_Control_Register;
-UNPACKITEM;
-ControlItemSize(TCA9543A_Control_Register, 1);
+TCA9543A_UNPACKITEM;
+TCA9543A_CONTROL_ITEM_SIZE(TCA9543A_Control_Register, 1);
 
 #define TCA9543A_CHANNEL0_ENABLE   (0x1u << 0) //!< Enable Channel 0
 #define TCA9543A_CHANNEL0_DISABLE  (0x0u << 0) //!< Disable Channel 0
@@ -169,50 +144,22 @@ typedef struct TCA9543A TCA9543A;        //! Typedef of TCA9543A device object s
 typedef uint8_t TTCA9543ADriverInternal; //! Alias for Driver Internal data flags
 
 
-
-/*! @brief Interface function for driver initialization of the TCA9543A
- *
- * This function will be called at driver initialization to configure the interface driver
- * @param[in] *pIntDev Is the TCA9543A.InterfaceDevice of the device that call the interface initialization
- * @param[in] sclFreq Is the SCL frequency in Hz to set at the interface initialization
- * @return Returns an #eERRORRESULT value enum
- */
-typedef eERRORRESULT (*TCA9543A_I2CInit_Func)(void *pIntDev, const uint32_t sclFreq);
-
-
-/*! @brief Interface function for I2C transfer of the AT24MAC402
- *
- * This function will be called when the driver needs to transfer data over the I2C communication with the device
- * Can be a read of data or a transmit of data. It also indicate if it needs a start and/or a stop
- * @warning A I2CInit_Func() must be called before using this function
- * @param[in] *pIntDev Is the AT24MAC402.InterfaceDevice of the device that call the I2C transfer
- * @param[in] deviceAddress Is the device address on the bus (8-bits only). The LSB bit indicate if it is a I2C Read (bit at '1') or a I2C Write (bit at '0')
- * @param[in,out] *data Is a pointer to memory data to write in case of I2C Write, or where the data received will be stored in case of I2C Read (can be NULL if no data transfer other than chip address)
- * @param[in] byteCount Is the byte count to write over the I2C bus or the count of byte to read over the bus
- * @param[in] start Indicate if the transfer needs a start (in case of a new transfer) or restart (if the previous transfer have not been stopped)
- * @param[in] stop Indicate if the transfer needs a stop after the last byte sent
- * @return Returns an #eERRORRESULT value enum
- */
-typedef eERRORRESULT (*TCA9543A_I2CTranfer_Func)(void *pIntDev, const uint8_t deviceAddress, uint8_t *data, size_t byteCount, bool start, bool stop);
-
-
-
 //! TCA9543A device object structure
 struct TCA9543A
 {
-  //--- Interface clocks ---
-  uint32_t I2C_ClockSpeed;                 //!< Clock frequency of the I2C interface in Hertz
-
   //--- Interface driver call functions ---
-  void *InterfaceDevice;                   //!< This is the pointer that will be in the first parameter of all interface call functions
-  TCA9543A_I2CInit_Func fnI2C_Init;        //!< This function will be called at driver initialization to configure the interface driver
-  TCA9543A_I2CTranfer_Func fnI2C_Transfer; //!< This function will be called when the driver needs to transfer data over the I2C communication with the device
+#ifdef USE_DYNAMIC_INTERFACE
+  I2C_Interface* I2C;                     //!< This is the I2C_Interface descriptor pointer that will be used to communicate with the device
+#else
+  I2C_Interface I2C;                      //!< This is the I2C_Interface descriptor that will be used to communicate with the device
+#endif
+  uint32_t I2C_ClockSpeed;                //!< Clock frequency of the I2C interface in Hertz
 
   //--- Device address ---
-  uint8_t AddrA1A0;                        //!< Device configurable address A1 and A0. You can use the macro TCA9543A_ADDR() to help filling this parameter. Only these 2 lower bits are used: .....10. where 1 is A1, 0 is A0, and '.' are fixed by device
+  uint8_t AddrA1A0;                       //!< Device configurable address A1 and A0. You can use the macro TCA9543A_ADDR() to help filling this parameter. Only these 2 lower bits are used: .....10. where 1 is A1, 0 is A0, and '.' are fixed by device
 
   //--- Last channel set ---
-  TTCA9543ADriverInternal InternalConfig;  //!< DO NOT USE OR CHANGE THIS VALUE, IT'S THE INTERNAL DRIVER CONFIGURATION
+  TTCA9543ADriverInternal InternalConfig; //!< DO NOT USE OR CHANGE THIS VALUE, IT'S THE INTERNAL DRIVER CONFIGURATION
 };
 
 //********************************************************************************************************************
@@ -291,39 +238,17 @@ inline eERRORRESULT TCA9543A_GetCurrentInterrupt(TCA9543A *pComp, uint8_t *inter
 //********************************************************************************************************************
 // TCA9543A I2C Driver API
 //********************************************************************************************************************
-typedef struct TCA9543A_I2C TCA9543A_I2C; //! SC16IS7XX UART object structure
 
-
-/*! @brief SC16IS7XX UART object structure
- * @warning Each Channel and Device tuple should be unique. Only 1 possible tuple on SC16IS7X0 and 2 possible tuple on SC16IS7X2 devices
- */
-struct TCA9543A_I2C
-{
-  //--- Device configuration ---
-  void *UserDriverData;            //!< Optional, can be used to store driver data or NULL
-  TCA9543A *Device;                //!< TCA9543A device where this I2C comes from
-
-  //--- I2C configuration ---
-  eTCA9543A_ChannelSelect Channel; //!< I2C channel of the TCA9543A
-};
-
-//********************************************************************************************************************
-
-
-
-
-
-/*! @brief Perform the I2C Init of the specified I2C channel of the TCA9543A device
+/*! @brief Perform the I2C Initialization of the specified I2C channel of the TCA9543A device
  *
  * This is the function that shall be called each time a I2C reinitialization or a SCL frequency change needs to be done
  * Before calling the TCA9543A.fnI2C_Init() function, there is a check of the SCL frequency
  * @warning Calling this function to change the I2C SCL speed will change the I2C speed for all devices connected on all channels of the TCA9543A device
- * @param[in] *pComp Is the pointed structure of the device that call the interface initialization
- * @param[in] *pIntDev Is the TCA9543A.InterfaceDevice of the device that call the interface initialization
+ * @param[in] *pIntDev Is the I2C interface container structure used for the communication. It will convert the pIntDev->InterfaceDevice into a TCA9543A structure to use its I2C interface
  * @param[in] sclFreq Is the SCL frequency in Hz to set at the interface initialization
  * @return Returns an #eERRORRESULT value enum
  */
-eERRORRESULT TCA9543A_I2CInit(void *pIntDev, const uint32_t sclFreq);
+eERRORRESULT TCA9543A_I2CInit(I2C_Interface *pIntDev, const uint32_t sclFreq);
 
 
 /*! @brief Perform the I2C Transfer to the specified I2C channel of the TCA9543A device
@@ -332,15 +257,11 @@ eERRORRESULT TCA9543A_I2CInit(void *pIntDev, const uint32_t sclFreq);
  * This function will change the current channel, if necessary, before sending the I2C Transfer
  * Can be a read of data or a transmit of data. It also indicate if it needs a start and/or a stop
  * @warning A TCA9543A_I2CInit() must be called before using this function for the first time
- * @param[in] *pIntDev This will be transformed into a TCA9543A_I2C device and use associated TCA9543A.fnI2C_Transfer to call the I2C transfer
- * @param[in] deviceAddress Is the device address on the bus (8-bits only). The LSB bit indicate if it is a I2C Read (bit at '1') or a I2C Write (bit at '0')
- * @param[in,out] *data Is a pointer to memory data to write in case of I2C Write, or where the data received will be stored in case of I2C Read (can be NULL if no data transfer other than chip address)
- * @param[in] byteCount Is the byte count to write over the I2C bus or the count of byte to read over the bus
- * @param[in] start Indicate if the transfer needs a start (in case of a new transfer) or restart (if the previous transfer have not been stopped)
- * @param[in] stop Indicate if the transfer needs a stop after the last byte sent
+ * @param[in] *pIntDev Is the I2C interface container structure used for the communication. It will convert the pIntDev->InterfaceDevice into a TCA9543A structure to use its I2C interface
+ * @param[in] *pPacketConf Is the packet description to transfer through I2C
  * @return Returns an #eERRORRESULT value enum
  */
-eERRORRESULT TCA9543A_I2CTranfert(void *pIntDev, const uint8_t deviceAddress, uint8_t *data, size_t byteCount, bool start, bool stop);
+eERRORRESULT TCA9543A_I2CTransfer(I2C_Interface *pIntDev, I2CInterface_Packet* const pPacketDesc);
 
 //********************************************************************************************************************
 
@@ -349,17 +270,8 @@ eERRORRESULT TCA9543A_I2CTranfert(void *pIntDev, const uint8_t deviceAddress, ui
 
 
 //-----------------------------------------------------------------------------
-#undef __PACKED__
-#undef PACKITEM
-#undef UNPACKITEM
-#undef ControlItemSize
-//-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* TCA9543A_H_INC */

@@ -12,30 +12,30 @@
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #include "stdio.h"
 #include <stdarg.h>
+//-----------------------------------------------------------------------------
+#include "I2C_Interface.h"
 #include "47x16.h"
 #include "TCA9543A.h"
 #include "MLX90640.h"
 #include "ErrorsDef.h"
+//-----------------------------------------------------------------------------
 #ifdef __cplusplus
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
+//-----------------------------------------------------------------------------
+
+#define BOARD_I2C_CLK_SPEED_HZ  ( 400000 ) //! I2C speed at 400kHz
+
 //-----------------------------------------------------------------------------
 
 
-
-
+//-----------------------------------------------------------------------------
 // Structure of the 47L16 used in the demo
 extern struct EERAM47x16 EERAM47L16_V71;
 # define EERAM_47L16  &EERAM47L16_V71
-
-
-
+//-----------------------------------------------------------------------------
 
 
 //-----------------------------------------------------------------------------
@@ -47,11 +47,11 @@ extern struct TCA9543A TCA9543A_V71;
 
 //-----------------------------------------------------------------------------
 // Channel 0 I2C Configuration structure of I2CMUX (TCA9543A)
-extern struct TCA9543A_I2C I2C0_MUX;
+extern const struct I2C_Interface I2C0_MUX;
 # define I2C0  &I2C0_MUX
 
 // Channel 1 I2C Configuration structure of I2CMUX (TCA9543A)
-extern struct TCA9543A_I2C I2C1_MUX;
+extern const struct I2C_Interface I2C1_MUX;
 # define I2C1  &I2C1_MUX
 //-----------------------------------------------------------------------------
 
@@ -74,13 +74,14 @@ extern MLX90640_Config IrCAM_Config;
 
 
 
-/*! @brief Detect I2C devices on a TCA9543A I2C channel
+
+
+//********************************************************************************************************************
+/*! @brief Get millisecond
  *
- * This function detect devices on the I2C bus and show it on console
- * @param[in] *pI2C Is the I2C channel of the TCA9543A where to detect the I2C devices
- * @return Returns an #eERRORRESULT value enum
+ * This function will be called when the driver need to get current millisecond
  */
-//eERRORRESULT I2Cdetect(TCA9543A_I2C *pI2C);
+uint32_t GetCurrentms_V71(void);
 
 //-----------------------------------------------------------------------------
 

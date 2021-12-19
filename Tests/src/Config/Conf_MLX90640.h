@@ -23,10 +23,10 @@
 #ifndef CONF_MLX90640_H
 #define CONF_MLX90640_H
 //=============================================================================
+#include "Main.h"
 
 
-
-// If in debug mode, check NULL parameters that are mandatory in each functions of the driver
+// If in debug mode, check NULL parameters that are mandatory in each function of the driver
 #ifdef DEBUG
 #  define CHECK_NULL_PARAM
 #endif

@@ -1,6 +1,6 @@
 /*******************************************************************************
  * @file    TCA9543A.c
- * @author  FMA
+ * @author  Fabien 'Emandhal' MAILLY
  * @version 1.0.0
  * @date    27/02/2020
  * @brief   TCA9543A driver
@@ -12,14 +12,18 @@
 //-----------------------------------------------------------------------------
 #include "TCA9543A.h"
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 #include <cstdint>
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
+//-----------------------------------------------------------------------------
+
+#ifdef USE_DYNAMIC_INTERFACE
+#  define GET_I2C_INTERFACE(dev)  dev->I2C
+#else
+#  define GET_I2C_INTERFACE(dev)  &dev->I2C
+#endif
+
 //-----------------------------------------------------------------------------
 
 
@@ -34,21 +38,24 @@ eERRORRESULT Init_TCA9543A(TCA9543A *pComp)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Transfer == NULL) return false;
+#endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE(pComp);
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
 
   //--- Initialize the interface ---
   if (pComp->I2C_ClockSpeed > TCA9543A_I2C_CLOCK_MAX) return ERR__FREQUENCY_ERROR;
-  Error = pComp->fnI2C_Init(pComp->InterfaceDevice, pComp->I2C_ClockSpeed);
+  Error = pI2C->fnI2C_Init(pI2C, pComp->I2C_ClockSpeed);
   if (Error != ERR_OK) return Error;                                                                      // If there is an error while calling fnI2C_Init() then return the Error
   pComp->InternalConfig = (TTCA9543ADriverInternal)(TCA9543A_CHANNELx_SET(TCA9543A_NO_CHANNEL_SELECTED)); // By default no channels are selected
 
   //--- Detect the presence of the device ---
-  uint8_t ChipAddrR = (TCA9543A_CHIPADDRESS_BASE | pComp->AddrA1A0) | TCA9543A_I2C_READ;
-  Error = pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddrR, NULL, 0, true, true); // Send only the chip address and get the Ack flag
-  if (Error == ERR__I2C_NACK) return ERR__NO_DEVICE_DETECTED;                            // If a NACK is received, then the device is not detected
+  I2CInterface_Packet PacketDesc = I2C_INTERFACE_NO_DATA_DESC((TCA9543A_CHIPADDRESS_BASE | pComp->AddrA1A0) | I2C_READ_ORMASK);
+  Error = pI2C->fnI2C_Transfer(pI2C, &PacketDesc);            // Send only the chip address and get the Ack flag
+  if (Error == ERR__I2C_NACK) return ERR__NO_DEVICE_DETECTED; // If a NACK is received, then the device is not detected
   return Error;
 }
 
@@ -57,33 +64,57 @@ eERRORRESULT Init_TCA9543A(TCA9543A *pComp)
 
 
 //**********************************************************************************************************************************************************
-// Read data from control register of the TCA9543A
+//=============================================================================
+// [STATIC] Read data from control register of the TCA9543A
+//=============================================================================
 static eERRORRESULT __TCA9543A_ReadControlRegister(TCA9543A *pComp, uint8_t* data)
 {
 #ifdef CHECK_NULL_PARAM
   if ((pComp == NULL) || (data == NULL)) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
-  uint8_t ChipAddr = (((TCA9543A_CHIPADDRESS_BASE | pComp->AddrA1A0) & TCA9543A_CHIPADDRESS_MASK) | TCA9543A_I2C_READ);
-
+  I2C_Interface* pI2C = GET_I2C_INTERFACE(pComp);
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2CInterface_Packet PacketDesc =
+  {
+    I2C_MEMBER(Config.Value) I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER),
+    I2C_MEMBER(ChipAddr    ) (((TCA9543A_CHIPADDRESS_BASE | pComp->AddrA1A0) & TCA9543A_CHIPADDRESS_MASK) | I2C_READ_ORMASK),
+    I2C_MEMBER(Start       ) true,
+    I2C_MEMBER(pBuffer     ) data,
+    I2C_MEMBER(BufferSize  ) 1,
+    I2C_MEMBER(Stop        ) true,
+  };
   //--- Write control register ---
-  return pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddr, data, 1, true, true); // Continue the transfer by sending the data and stop transfer (chip address will not be used)
+  return pI2C->fnI2C_Transfer(pI2C, &PacketDesc); // Continue the transfer by sending the data and stop transfer (chip address will not be used)
 }
 
 
 
-// Write data to control register of the TCA9543A
+//=============================================================================
+// [STATIC] Write data to control register of the TCA9543A
+//=============================================================================
 static eERRORRESULT __TCA9543A_WriteControlRegister(TCA9543A *pComp, const uint8_t data)
 {
 #ifdef CHECK_NULL_PARAM
-  if ((pComp == NULL) || (data == NULL)) return ERR__PARAMETER_ERROR;
-  if (pComp->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+  if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
-  uint8_t ChipAddr = ((TCA9543A_CHIPADDRESS_BASE | pComp->AddrA1A0) & TCA9543A_CHIPADDRESS_MASK) & TCA9543A_I2C_WRITE;
-
-  //--- Write control register ---
+  I2C_Interface* pI2C = GET_I2C_INTERFACE(pComp);
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
   uint8_t* pData = (uint8_t*)&data;
-  return pComp->fnI2C_Transfer(pComp->InterfaceDevice, ChipAddr, pData, 1, true, true); // Continue the transfer by sending the data and stop transfer (chip address will not be used)
+  I2CInterface_Packet PacketDesc =
+  {
+    I2C_MEMBER(Config.Value) I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER),
+    I2C_MEMBER(ChipAddr    ) (((TCA9543A_CHIPADDRESS_BASE | pComp->AddrA1A0) & TCA9543A_CHIPADDRESS_MASK) & I2C_WRITE_ANDMASK),
+    I2C_MEMBER(Start       ) true,
+    I2C_MEMBER(pBuffer     ) pData,
+    I2C_MEMBER(BufferSize  ) 1,
+    I2C_MEMBER(Stop        ) true,
+  };
+  //--- Write control register ---
+  return pI2C->fnI2C_Transfer(pI2C, &PacketDesc); // Continue the transfer by sending the data and stop transfer (chip address will not be used)
 }
 
 
@@ -147,19 +178,21 @@ eERRORRESULT TCA9543A_GetDeviceStatus(TCA9543A *pComp, eTCA9543A_ChannelSelect *
 //=============================================================================
 // Perform the I2C Init of the specified I2C channel of the TCA9543A device
 //=============================================================================
-eERRORRESULT TCA9543A_I2CInit(void *pIntDev, const uint32_t sclFreq)
+eERRORRESULT TCA9543A_I2CInit(I2C_Interface *pIntDev, const uint32_t sclFreq)
 {
 #ifdef CHECK_NULL_PARAM
   if (pIntDev == NULL) return ERR__PARAMETER_ERROR;
 #endif
-  struct TCA9543A_I2C* pI2C = (struct TCA9543A_I2C*)pIntDev; // Transform the pIntDev into a TCA9543A_I2C port
-  TCA9543A* pDevice = pI2C->Device;                          // Get the TCA9543A device of this I2C port
+  TCA9543A* pDevice = (TCA9543A*)(pIntDev->InterfaceDevice);         // Get the TCA9543A device of this I2C port
 #ifdef CHECK_NULL_PARAM
   if (pDevice == NULL) return ERR__UNKNOWN_DEVICE;
-  if (pDevice->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  I2C_Interface* pI2C = GET_I2C_INTERFACE(pDevice);
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
 #endif
   if (sclFreq > TCA9543A_I2C_CLOCK_MAX) return ERR__FREQUENCY_ERROR; // Check the SCL frequency. If it is too high for the TCA9543A, return an error
-  return pDevice->fnI2C_Init(pDevice->InterfaceDevice, sclFreq);     // Perform the I2C Init
+  return pI2C->fnI2C_Init(pI2C, sclFreq);                            // Perform the I2C Init
 }
 
 
@@ -167,20 +200,22 @@ eERRORRESULT TCA9543A_I2CInit(void *pIntDev, const uint32_t sclFreq)
 //=============================================================================
 // Perform the I2C Transfer to the specified I2C channel of the TCA9543A device
 //=============================================================================
-eERRORRESULT TCA9543A_I2CTranfert(void *pIntDev, const uint8_t deviceAddress, uint8_t *data, size_t byteCount, bool start, bool stop)
+eERRORRESULT TCA9543A_I2CTransfer(I2C_Interface *pIntDev, I2CInterface_Packet* const pPacketDesc)
 {
 #ifdef CHECK_NULL_PARAM
-  if (pIntDev == NULL) return ERR__PARAMETER_ERROR;
+  if ((pIntDev == NULL) || (pPacketDesc == NULL)) return ERR__PARAMETER_ERROR;
 #endif
-  struct TCA9543A_I2C* pI2C = (struct TCA9543A_I2C*)pIntDev; // Transform the pIntDev into a TCA9543A_I2C port
-  TCA9543A* pDevice = pI2C->Device;                          // Get the TCA9543A device of this I2C port
+  TCA9543A* pDevice = (TCA9543A*)(pIntDev->InterfaceDevice);              // Get the TCA9543A device of this I2C port
 #ifdef CHECK_NULL_PARAM
   if (pDevice == NULL) return ERR__UNKNOWN_DEVICE;
-  if (pDevice->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
-  eERRORRESULT Error = TCA9543A_SelectChannel(pDevice, pI2C->Channel); // Select the channel if not already selected
-  if (Error != ERR_OK) return Error;                                   // If there is an error while calling TCA9543A_SelectChannel() then return the Error
-  return pDevice->fnI2C_Transfer(pDevice->InterfaceDevice, deviceAddress, data, byteCount, start, stop); // Perform the I2C Transfer
+  I2C_Interface* pI2C = GET_I2C_INTERFACE(pDevice);
+#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
+#endif
+  eERRORRESULT Error = TCA9543A_SelectChannel(pDevice, pIntDev->Channel); // Select the channel if not already selected
+  if (Error != ERR_OK) return Error;                                      // If there is an error while calling TCA9543A_SelectChannel() then return the Error
+  return pI2C->fnI2C_Transfer(pI2C, pPacketDesc);                         // Perform the I2C Transfer
 }
 
 //-----------------------------------------------------------------------------
@@ -190,11 +225,7 @@ eERRORRESULT TCA9543A_I2CTranfert(void *pIntDev, const uint8_t deviceAddress, ui
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------

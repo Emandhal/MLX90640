@@ -48,9 +48,7 @@ extern "C" {
 //! Hexadecimal dump of memory
 #define HEXDUMP(context, src, size)     __HexDump(CONSOLE_TX, context, src, size)
 //! Binary dump of memory
-#define BINDUMP(context, src, size)     __BinDump(CONSOLE_TX, context, src, size, false)
-//! Reverse binary dump of memory
-#define REVBINDUMP(context, src, size)  __BinDump(CONSOLE_TX, context, src, size, true)
+#define BINDUMP(context, src, size)     __BinDump(CONSOLE_TX, context, src, size)
 
 
 

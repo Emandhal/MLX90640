@@ -20,7 +20,6 @@
 #include "Main.h"
 #include "DriversParams.h"
 #include "StringTools.h"
-#include "I2C_V71InterfaceSync.h"
 #include "ANSIEscape_Lib.h"
 //-----------------------------------------------------------------------------
 
@@ -30,7 +29,12 @@ volatile uint32_t msCount; //! Milli-seconds count from start of the system
 static bool I2Cmux_DevicePresent = false;
 static bool EERAM_DevicePresent = false;
 static bool IrCAM_EEPROM_Dumped = false;
+
+#ifdef ASYNC_USE_OF_MLX90640
+static COMPILER_ALIGNED(8) MLX90640_FramePolling IrFramePolling;
+#else
 static MLX90640_FrameTo IrFrame;
+#endif
 
 //-----------------------------------------------------------------------------
 
@@ -307,7 +311,11 @@ static void ProcessCommand(void)
       IrCAM_ShowParams(&IrCAM_Params);
       break;
     case SHOWFRAME:
+#ifdef ASYNC_USE_OF_MLX90640
+      IrCAM_ShowFrame(&IrFramePolling.Result);
+#else
       IrCAM_ShowFrame(&IrFrame);
+#endif
       break;
 
     case NO_COMMAND:
@@ -351,9 +359,15 @@ int main (void)
   ioport_set_pin_mode(TWIHS0_CLK_GPIO, TWIHS0_CLK_FLAGS);
 	ioport_disable_pin(TWIHS0_CLK_GPIO);
   
-  EXT2_PWM_PIO_En;
-  EXT2_PWM_High;
-	EXT2_PWM_Out;
+  EXT2_AN_PIO_En;
+  EXT2_AN_High;
+  EXT2_AN_Out;
+	EXT2_ADCm_PIO_En;
+	EXT2_ADCm_High;
+	EXT2_ADCm_Out;
+	EXT2_GPIO_PIO_En;
+	EXT2_GPIO_High;
+	EXT2_GPIO_Out;
 
   //--- Initialize the console UART ---------------------
   InitConsoleTx(CONSOLE_TX);
@@ -362,6 +376,7 @@ int main (void)
   //--- Demo start --------------------------------------
   printf("\r\n\r\n");
   LOGTITLE("MLX90640 Demo start...");
+  TWIHS_BusRecovery(TWIHS0);
 
   //--- Configure SysTick base timer --------------------
   SysTick_Config(SystemCoreClock * SYSTEM_TICK_MS / 1000); // (Fmck(Hz)*1/1000)=1ms
@@ -399,20 +414,23 @@ int main (void)
     LOGERROR("Device TCA9543A not detected");
     ioport_set_pin_level(LED0_GPIO, LED0_ACTIVE_LEVEL);
     I2Cmux_DevicePresent = false;
+    //--- Set MLX90640 directly on a I2C peripheral ---
+#if defined(SOFT_I2C)
+    MLX90640_V71.I2C.fnI2C_Init     = SoftI2C_InterfaceInit_V71;
+    MLX90640_V71.I2C.fnI2C_Transfer = SoftI2C_Tranfert_V71;
+#else
+    MLX90640_V71.I2C.fnI2C_Init     = TWIHS_DMA_MasterInit_Gen;
+    MLX90640_V71.I2C.fnI2C_Transfer = TWIHS_PacketTransfer_Gen;
+#endif
   }
   
   //--- Configure MLX90640 ------------------------------
-  float Tr = 25.0f - 8.0f; // Set the first Tr at 25-8°. Next will be get from the last calculated frame
-  if (I2Cmux_DevicePresent == false)
-  {
-#if defined(SOFT_I2C)
-    MLX90640_V71.fnI2C_Init     = SoftI2C_InterfaceInit_V71;
-    MLX90640_V71.fnI2C_Transfer = SoftI2C_Tranfert_V71;
+#ifdef ASYNC_USE_OF_MLX90640
+  IrFramePolling.Emissivity = 1.0f;
+  IrFramePolling.Tr = 25.0f - 8.0f; // Set the first Tr at 25-8°. Next will be get from the last calculated frame
 #else
-    MLX90640_V71.fnI2C_Init     = HardI2C_InterfaceInit_V71;
-    MLX90640_V71.fnI2C_Transfer = HardI2C_Tranfert_V71;
+  float Tr = 25.0f - 8.0f; // Set the first Tr at 25-8°. Next will be get from the last calculated frame
 #endif
-  }
   Error = Init_MLX90640(IrCAM, &IrCAM_Config);
   if (Error == ERR_OK)
   {
@@ -422,7 +440,6 @@ int main (void)
     if (Error == ERR_OK)
     {
       LOGTRACE("Device %s detected, device ID: %04X%04X%04X", MLX90640_DevicesNames[(size_t)Device], (unsigned short)DeviceID[0], (unsigned short)DeviceID[1], (unsigned short)DeviceID[2]);
-
 //      Error = MLX90640_ExtractDeviceParameters(IrCAM, &IrCAM_EEPROM, false);  // Do not dump EEPROM
       Error = MLX90640_ExtractDeviceParameters(IrCAM, &IrCAM_EEPROM, true); // Dump EEPROM
       if (Error == ERR_OK)
@@ -469,6 +486,16 @@ int main (void)
     ProcessCommand();
     
     //--- Frame available ? ---
+#ifdef ASYNC_USE_OF_MLX90640
+    EXT2_AN_Low; //### General call of polling
+    Error = MLX90640_PollFrameTo(IrCAM, &IrFramePolling);
+    EXT2_AN_High; //### General call of polling
+    if (Error == ERR_OK)
+    {
+      IrFramePolling.Tr = IrFramePolling.Result.Ta - 8.0f; // Calculate next Tr: Tr = Ta - 8°
+    }
+    else if ((Error != ERR__BUSY) && (Error != ERR__I2C_BUSY)) ShowError(Error);
+#else
     if (MLX90640_IsFrameAvailable(IrCAM))
     {
       do 
@@ -477,7 +504,7 @@ int main (void)
         Error = MLX90640_GetFrameData(IrCAM, &IrCAM_FrameData);
         if (Error != ERR_OK) break;
 
-        EXT2_PWM_Low;
+        EXT2_AN_Low; //### Frame processing
         //--- Calculate the subframe To
         Error = MLX90640_CalculateTo(IrCAM, &IrCAM_FrameData, 1.0f, Tr, &IrFrame);
         if (Error != ERR_OK) break;
@@ -485,9 +512,10 @@ int main (void)
         if (Error != ERR_OK) break;
         Tr = IrFrame.Ta - 8.0f; // Calculate next Tr: Tr = Ta - 8°
       } while (Error != ERR_OK);
-      EXT2_PWM_High;
+      EXT2_AN_High; //### Frame processing
       if (Error != ERR_OK) ShowError(Error);
     }
+#endif
     nop();
   }
 }

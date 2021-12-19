@@ -1,7 +1,7 @@
 /*******************************************************************************
  * @file    MLX90640.h
  * @author  Fabien 'Emandhal' MAILLY
- * @version 1.0.2
+ * @version 1.1.0
  * @date    27/02/2021
  * @brief   MLX90640 driver
  *
@@ -32,6 +32,7 @@
  *****************************************************************************/
 
 /* Revision history:
+ * 1.1.0    I2C interface rework for I2C DMA use and polling
  * 1.0.2    Correct resolution error in delta Vdd calculus
  * 1.0.1    Add minimum and maximum value of To for each subframe in MLX90640_FrameTo
  * 1.0.0    Release version
@@ -48,45 +49,22 @@
 //-----------------------------------------------------------------------------
 #include "ErrorsDef.h"
 #include "Conf_MLX90640.h"
-/// @cond 0
-/**INDENT-OFF**/
-#ifdef __cplusplus
-extern "C" {
-#endif
-/**INDENT-ON**/
-/// @endcond
+#include "I2C_Interface.h"
 //-----------------------------------------------------------------------------
-
-#ifndef __PACKED__
-# ifndef __cplusplus
-#   define __PACKED__  __attribute__((packed))
-# else
-#   define __PACKED__
-# endif
+#ifdef __cplusplus
+  extern "C" {
+#  define __MLX90640_PACKED__
+#  define MLX90640_PACKITEM    __pragma(pack(push, 1))
+#  define MLX90640_UNPACKITEM  __pragma(pack(pop))
+#else
+#  define __MLX90640_PACKED__  __attribute__((packed))
+#  define MLX90640_PACKITEM
+#  define MLX90640_UNPACKITEM
 #endif
-
-#ifndef PACKITEM
-# ifndef __cplusplus
-#   define PACKITEM
-# else
-#   define PACKITEM  __pragma(pack(push, 1))
-# endif
-#endif
-
-#ifndef UNPACKITEM
-# ifndef __cplusplus
-#   define UNPACKITEM
-# else
-#   define UNPACKITEM  __pragma(pack(pop))
-# endif
-#endif
-
 //-----------------------------------------------------------------------------
 
 //! This macro is used to check the size of an object. If not, it will raise a "divide by 0" error at compile time
-#ifndef ControlItemSize
-#  define ControlItemSize(item, size)  enum { item##_size_must_be_##size##_bytes = 1 / (int)(!!(sizeof(item) == size)) }
-#endif
+#define MLX90640_CONTROL_ITEM_SIZE(item, size)  enum { item##_size_must_be_##size##_bytes = 1 / (int)(!!(sizeof(item) == size)) }
 
 //-----------------------------------------------------------------------------
 
@@ -106,9 +84,6 @@ extern "C" {
 
 
 // Device definitions
-#define MLX90640_I2C_READ                  ( 0x01 ) //!< Standard I2C LSB bit to set
-#define MLX90640_I2C_WRITE                 ( 0xFE ) //!< Standard I2C bit mask which clear the LSB
-
 #define MLX90640_CHIPADDRESS_DEFAULT  ( 0x33 << 1 ) //!< Base chip address (Default, can be changed)
 #define MLX90640_CHIPADDRESS_MASK          ( 0xFE ) //!< Chip address mask
 
@@ -188,8 +163,8 @@ typedef enum
 //********************************************************************************************************************
 
 //! Status Register (Reg: 0x8000 ; EEPROM: 0x2403)
-PACKITEM
-typedef union __PACKED__ MLX90640_Status
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_Status
 {
   uint16_t Status;
   struct
@@ -200,8 +175,8 @@ typedef union __PACKED__ MLX90640_Status
     uint16_t          : 11; //!< 5-15
   } Bits;
 } MLX90640_Status;
-UNPACKITEM;
-ControlItemSize(MLX90640_Status, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_Status, 2);
 
 //! Last measured subpage enum
 typedef enum
@@ -224,8 +199,8 @@ typedef enum
 
 
 //! Control 1 Register (Reg: 0x800D ; EEPROM: 0x240C) [default: 0x1901]
-PACKITEM
-typedef union __PACKED__ MLX90640_Control1
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_Control1
 {
   uint16_t Control1;
   struct
@@ -241,8 +216,8 @@ typedef union __PACKED__ MLX90640_Control1
     uint16_t            :  3; //!< 13-15
   } Bits;
 } MLX90640_Control1;
-UNPACKITEM;
-ControlItemSize(MLX90640_Control1, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_Control1, 2);
 
 #define MLX90640_SUBPAGE_MODE_ENABLE     (0x1u << 0) //!< Enable subpade mode (default)
 #define MLX90640_SUBPAGE_MODE_DISABLE    (0x0u << 0) //!< Disable subpade mode. No subpages, only one page will be measured
@@ -272,8 +247,8 @@ typedef enum
   MLX90640_IR_REFRESH_RATE_4Hz  = 0b011, //!< IR refresh rate = 4Hz
   MLX90640_IR_REFRESH_RATE_8Hz  = 0b100, //!< IR refresh rate = 8Hz
   MLX90640_IR_REFRESH_RATE_16Hz = 0b101, //!< IR refresh rate = 16Hz
-  MLX90640_IR_REFRESH_RATE_32Hz = 0b110, //!< IR refresh rate = 32Hz
-  MLX90640_IR_REFRESH_RATE_64Hz = 0b111, //!< IR refresh rate = 64Hz
+  MLX90640_IR_REFRESH_RATE_32Hz = 0b110, //!< IR refresh rate = 32Hz (Only possible with I2C clock @ 1MHz)
+  MLX90640_IR_REFRESH_RATE_64Hz = 0b111, //!< IR refresh rate = 64Hz (Only possible with I2C clock @ 1MHz with DMA)
 } eMLX90640_RefreshRate;
 
 #define MLX90640_IR_REFRESH_RATE_Pos         7
@@ -325,8 +300,8 @@ typedef enum
 
 
 //! I2C Configuration Register (Reg: 0x800F ; EEPROM: 0x240E) [default: 0x0000]
-PACKITEM
-typedef union __PACKED__ MLX90640_I2Cconfig
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_I2Cconfig
 {
   uint16_t I2Cconfig;
   struct
@@ -337,8 +312,8 @@ typedef union __PACKED__ MLX90640_I2Cconfig
     uint16_t           : 13; //!< 3-15
   } Bits;
 } MLX90640_I2Cconfig;
-UNPACKITEM;
-ControlItemSize(MLX90640_I2Cconfig, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_I2Cconfig, 2);
 
 #define MLX90640_FMp_DISABLE                (0x1u << 0) //!< Disable FM+ mode
 #define MLX90640_FMp_ENABLE                 (0x0u << 0) //!< Enable FM+ mode
@@ -352,8 +327,8 @@ ControlItemSize(MLX90640_I2Cconfig, 2);
 
 
 //! I2C Configuration Register (Reg: 0x8010 ; EEPROM: 0x240F) [default: 0xBE33]
-PACKITEM
-typedef union __PACKED__ MLX90640_I2Caddress
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_I2Caddress
 {
   uint16_t I2Caddress;
   struct
@@ -362,8 +337,8 @@ typedef union __PACKED__ MLX90640_I2Caddress
     uint16_t RESERVED: 8; //!< 8-15
   } Bits;
 } MLX90640_I2Caddress;
-UNPACKITEM;
-ControlItemSize(MLX90640_I2Caddress, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_I2Caddress, 2);
 
 #define MLX90640_I2C_ADDRESS_Pos            0
 #define MLX90640_I2C_ADDRESS_Mask           (0xFFu << MLX90640_I2C_ADDRESS_Pos)
@@ -399,8 +374,8 @@ static const char* const MLX90640_DevicesNames[eMLX90640_DEVICE_COUNT] =
 
 
 //! Scale OCC Register (EEPROM: 0x2410)
-PACKITEM
-typedef union __PACKED__ MLX90640_ScaleOCC
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_ScaleOCC
 {
   uint16_t ScaleOCC;
   struct
@@ -411,8 +386,8 @@ typedef union __PACKED__ MLX90640_ScaleOCC
     uint16_t ALPHA_PTAT :  4; //!< 12-15 - (Alpha PTAT - 8)*4
   } Bits;
 } MLX90640_ScaleOCC;
-UNPACKITEM;
-ControlItemSize(MLX90640_ScaleOCC, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_ScaleOCC, 2);
 
 #define MLX90640_SCALE_OCC_REM_Pos         0
 #define MLX90640_SCALE_OCC_REM_Mask        (0xFu << MLX90640_SCALE_OCC_REM_Pos)
@@ -432,8 +407,8 @@ ControlItemSize(MLX90640_ScaleOCC, 2);
 
 
 //! Row + column Register (EEPROM: for OCC 0x2412..0x241F ; for ACC 0x2422.. 0x242F)
-PACKITEM
-typedef union __PACKED__ MLX90640_RowColumn
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_RowColumn
 {
   uint16_t Data[(MLX90640_ROW_COUNT / 4) + (MLX90640_COL_COUNT / 4)];
   struct
@@ -510,8 +485,8 @@ typedef union __PACKED__ MLX90640_RowColumn
     } Column;
   };
 } MLX90640_RowColumn;
-UNPACKITEM;
-ControlItemSize(MLX90640_RowColumn, 28); // 12 + 16
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_RowColumn, 28); // 12 + 16
 
 #define MLX90640_EXTRACT_NIBBLE_0(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,4)
 #define MLX90640_EXTRACT_NIBBLE_1(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,4,4)
@@ -523,8 +498,8 @@ ControlItemSize(MLX90640_RowColumn, 28); // 12 + 16
 
 
 //! Scale ACC Register (EEPROM: 0x2420)
-PACKITEM
-typedef union __PACKED__ MLX90640_ScaleACC
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_ScaleACC
 {
   uint16_t ScaleACC;
   struct
@@ -535,8 +510,8 @@ typedef union __PACKED__ MLX90640_ScaleACC
     uint16_t ALPHA_SCALE:  4; //!< 12-15 - Alpha scale - 30
   } Bits;
 } MLX90640_ScaleACC;
-UNPACKITEM;
-ControlItemSize(MLX90640_ScaleACC, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_ScaleACC, 2);
 
 #define MLX90640_SCALE_ACC_REM_Pos         0
 #define MLX90640_SCALE_ACC_REM_Mask        (0xFu << MLX90640_SCALE_ACC_REM_Pos)
@@ -556,8 +531,8 @@ ControlItemSize(MLX90640_ScaleACC, 2);
 
 
 //! K PTAT Register (EEPROM: 0x2432)
-PACKITEM
-typedef union __PACKED__ MLX90640_KPTAT
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_KPTAT
 {
   int16_t KPTAT;
   struct
@@ -566,8 +541,8 @@ typedef union __PACKED__ MLX90640_KPTAT
     int16_t Kv_PTAT:  6; //!< 10-15 - Kv PTAT
   } Bits;
 } MLX90640_KPTAT;
-UNPACKITEM;
-ControlItemSize(MLX90640_KPTAT, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_KPTAT, 2);
 
 #define MLX90640_Kt_PTAT_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,10) //!< Get Kt PTAT
 #define MLX90640_Kv_PTAT_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,10,6) //!< Get Kv PTAT
@@ -585,8 +560,8 @@ ControlItemSize(MLX90640_KPTAT, 2);
 
 
 //! Kv Average Register (EEPROM: 0x2434)
-PACKITEM
-typedef union __PACKED__ MLX90640_KvAvg
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_KvAvg
 {
   uint16_t KvAvg;
   struct
@@ -597,8 +572,8 @@ typedef union __PACKED__ MLX90640_KvAvg
     uint16_t KvAvg_RowOdd_ColOdd  : 4; //!< 12-15 - Kv Average on Row Odd and Column Odd
   } Bits;
 } MLX90640_KvAvg;
-UNPACKITEM;
-ControlItemSize(MLX90640_KvAvg, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_KvAvg, 2);
 
 #define MLX90640_KvAVG_ROW_EVEN_COL_EVEN_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,4)  //!< Get Kv Average on Row Even and Column Even
 #define MLX90640_KvAVG_ROW_ODD_COL_EVEN_GET(value)   MLX90640_DATA_EXTRACT_TO_INT16(value,4,4)  //!< Get Kv Average on Row Odd and Column Even
@@ -614,8 +589,8 @@ ControlItemSize(MLX90640_KvAvg, 2);
 #define MLX90640_C3  ( 2 )
 
 //! IL Chess Register (EEPROM: 0x2435)
-PACKITEM
-typedef union __PACKED__ MLX90640_ILchess
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_ILchess
 {
   uint16_t ILchess;
   struct
@@ -625,8 +600,8 @@ typedef union __PACKED__ MLX90640_ILchess
     uint16_t IL_CHESS_C3: 5; //!< 11-15 - IL Chess C3
   } Bits;
 } MLX90640_ILchess;
-UNPACKITEM;
-ControlItemSize(MLX90640_ILchess, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_ILchess, 2);
 
 #define MLX90640_IL_CHESS_C1_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,0,6)  //!< Get IL Chess C1
 #define MLX90640_IL_CHESS_C2_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,6,5)  //!< Get IL Chess C2
@@ -653,8 +628,8 @@ ControlItemSize(MLX90640_ILchess, 2);
 
 
 //! K scale Register (EEPROM: 0x2438)
-PACKITEM
-typedef union __PACKED__ MLX90640_Kscale
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_Kscale
 {
   uint16_t Kscale;
   struct
@@ -666,8 +641,8 @@ typedef union __PACKED__ MLX90640_Kscale
     uint16_t           : 2; //!< 14-15
   } Bits;
 } MLX90640_Kscale;
-UNPACKITEM;
-ControlItemSize(MLX90640_Kscale, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_Kscale, 2);
 
 #define MLX90640_Kta_SCALE2_Pos           0
 #define MLX90640_Kta_SCALE2_Mask          (0xFu << MLX90640_Kta_SCALE2_Pos)
@@ -687,8 +662,8 @@ ControlItemSize(MLX90640_Kscale, 2);
 
 
 //! Alpha Compensation Pixel subpage Register (EEPROM: 0x2439)
-PACKITEM
-typedef union __PACKED__ MLX90640_AlphaCP
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_AlphaCP
 {
   uint16_t AlphaCPsubpage;
   struct
@@ -697,8 +672,8 @@ typedef union __PACKED__ MLX90640_AlphaCP
     uint16_t AlphaCP_P1P0ratio:  6; //!< 10-15 - Alpha CP subpage_1/subpage_0 ratio (CP subpage_1 / CP subpage_0 - 1)*2^7
   } Bits;
 } MLX90640_AlphaCP;
-UNPACKITEM;
-ControlItemSize(MLX90640_AlphaCP, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_AlphaCP, 2);
 
 #define MLX90640_ALPHA_CP_SUBPAGE0_Pos           0
 #define MLX90640_ALPHA_CP_SUBPAGE0_Mask          (0x3FFu << MLX90640_ALPHA_CP_SUBPAGE0_Pos)
@@ -710,8 +685,8 @@ ControlItemSize(MLX90640_AlphaCP, 2);
 
 
 //! Offset Compensation Pixel subpage Register (EEPROM: 0x243A)
-PACKITEM
-typedef union __PACKED__ MLX90640_OffsetCP
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_OffsetCP
 {
   uint16_t OffsetCPsubpage;
   struct
@@ -720,8 +695,8 @@ typedef union __PACKED__ MLX90640_OffsetCP
     uint16_t OffsetCP_P1P0delta:  6; //!< 10-15 - Offset delta (CP subpage_1 - CP subpage_0)
   } Bits;
 } MLX90640_OffsetCP;
-UNPACKITEM;
-ControlItemSize(MLX90640_OffsetCP, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_OffsetCP, 2);
 
 #define MLX90640_OFFSET_CP_SUBPAGE_GET(value)     MLX90640_DATA_EXTRACT_TO_INT16(value,0,10) //!< Get Offset CP subpage_0
 #define MLX90640_OFFSET_CP_P1P0_DELTA_GET(value)  MLX90640_DATA_EXTRACT_TO_INT16(value,10,6) //!< Get Offset delta (CP subpage_1 - CP subpage_0)
@@ -774,8 +749,8 @@ ControlItemSize(MLX90640_OffsetCP, 2);
 #define MLX90640_CT4  ( 3 )
 
 //! CT and Temp Register (EEPROM: 0x243F)
-PACKITEM
-typedef union __PACKED__ MLX90640_CTtemp
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_CTtemp
 {
   uint16_t CTtemp;
   struct
@@ -787,8 +762,8 @@ typedef union __PACKED__ MLX90640_CTtemp
     uint16_t             : 2; //!< 14-15
   } Bits;
 } MLX90640_CTtemp;
-UNPACKITEM;
-ControlItemSize(MLX90640_CTtemp, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_CTtemp, 2);
 
 #define MLX90640_KsTo_SCALE_OFFSET_Pos         0
 #define MLX90640_KsTo_SCALE_OFFSET_Mask        (0xFu << MLX90640_KsTo_SCALE_OFFSET_Pos)
@@ -808,8 +783,8 @@ ControlItemSize(MLX90640_CTtemp, 2);
 
 
 //! Pixel data Register (EEPROM: 0x2440..0x273F)
-PACKITEM
-typedef union __PACKED__ MLX90640_PixelData
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_PixelData
 {
   uint16_t Pixel;
   struct
@@ -820,8 +795,8 @@ typedef union __PACKED__ MLX90640_PixelData
     uint16_t OffsetPix: 6; //!< 10-15 - Offset pixel
   } Bits;
 } MLX90640_PixelData;
-UNPACKITEM;
-ControlItemSize(MLX90640_PixelData, 2);
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_PixelData, 2);
 
 #define MLX90640_PIXEL_IS_BROKEN(value)   ( (value) == 0x0000 )        //!< The pixel is considered as broken i.e. the pixel has failed
 #define MLX90640_PIXEL_IS_OUTLIER(value)  ( ((value) & (1 << 0)) > 0 ) //!< The pixel is considered as Outlier i.e. the sensor accuracy is not guaranteed by the calibration
@@ -852,8 +827,8 @@ typedef struct MLX90640_DefectPixels
 
 
 //! EEPROM registers (EEPROM start address: 0x2400 ; each address is 16-bits)
-PACKITEM
-typedef union __PACKED__ MLX90640_EEPROM
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_EEPROM
 {
   uint16_t Words[ 0x2740 - 0x2400     ]; //!< EEPROM words: starts at address 0x2400 and finish at address 0x2740
   uint8_t  Bytes[(0x2740 - 0x2400) * 2]; //!< EEPROM bytes: starts at address 0x2400 and finish at address 0x2740
@@ -900,8 +875,8 @@ typedef union __PACKED__ MLX90640_EEPROM
     };
   };
 } MLX90640_EEPROM;
-UNPACKITEM;
-ControlItemSize(MLX90640_EEPROM, 1664); // Start at address 0x2400 and finish at address 0x2740 => 0x340 => 832*2 for bytes
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_EEPROM, 1664); // Start at address 0x2400 and finish at address 0x2740 => 0x340 => 832*2 for bytes
 
 #define MLX90640_PIXEL_DATA_AT(row,column)     ( (PixelData[(((row) - 1) * 32) + ((column) - 1)] ) //!< Get the pixel in PixelData[]. 'row' should be > 0 and <= 24. 'column' should be > 0 and <= 32
 #define MLX90640_PIXEL_YX_DATA_AT(row,column)  ( (PixelYXData[(row) - 1][(column) - 1] )           //!< Get the pixel in PixelYXData[][]. 'row' should be > 0 and <= 24. 'column' should be > 0 and <= 32
@@ -976,8 +951,8 @@ typedef struct MLX90640_Parameters
 
 
 //! Frame data (RAM start address: 0x0400 ; each address is 16-bits)
-PACKITEM
-typedef union __PACKED__ MLX90640_FrameData
+MLX90640_PACKITEM
+typedef union __MLX90640_PACKED__ MLX90640_FrameData
 {
   uint16_t Words[ 0x0740 - 0x0400 + 1     ]; //!< RAM words: starts at address 0x0400 and finish at address 0x0740 + 1 register
   uint8_t  Bytes[(0x0740 - 0x0400 + 1) * 2]; //!< RAM bytes: starts at address 0x0400 and finish at address 0x0740 + 1 register
@@ -1012,8 +987,8 @@ typedef union __PACKED__ MLX90640_FrameData
     };
   };
 } MLX90640_FrameData;
-UNPACKITEM;
-ControlItemSize(MLX90640_FrameData, 1666); // Start at address 0x0400 and finish at address 0x0740 plus 1 register => 0x340+1 => 833*2 for bytes
+MLX90640_UNPACKITEM;
+MLX90640_CONTROL_ITEM_SIZE(MLX90640_FrameData, 1666); // Start at address 0x0400 and finish at address 0x0740 plus 1 register => 0x340+1 => 833*2 for bytes
 
 
 
@@ -1041,6 +1016,34 @@ typedef struct MLX90640_FrameTo
 #endif
 } MLX90640_FrameTo;
 
+//********************************************************************************************************************
+
+
+
+//! Polling state enum
+typedef enum
+{
+  MLX90640_POLLING_WAIT_FRAME_AVAILABLE,     //!< Wait for frame available flag
+  MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS, //!< DMA transfer is in progress to obtain subframe data
+  MLX90640_POLLING_NEXT_SWAP_DATA,           //!< Next step is swapping data (Big-Endian to Little-Endian)
+  MLX90640_POLLING_NEXT_CHECK_FRAME_DATA,    //!< Next step is to check frame data
+  MLX90640_POLLING_NEXT_CALCULATE_FRAME_TO,  //!< Next step is calculate subframe To and add it to FrameTo
+  MLX90640_POLLING_NEXT_CORRECT_BAD_PIXELS,  //!< Next step is correct bad pixels
+  MLX90640_POLLING_LAST_IS_ERROR,            //!< Last polling returns an error
+} eMLX90640_PollingState;
+
+//! Frame polling structure
+typedef struct MLX90640_FramePolling
+{
+  MLX90640_FrameData SubFramesData[2];    //!< Subframes data. One is retrieved from device when the other will be calculated)
+  MLX90640_FrameTo Result;                //!< This is the result of the frame To
+  float Emissivity;                       //!< Emissivity of for the frame To
+  float Tr;                               //!< IR signal reflected from the object (the source of this signal is surrounding environment of the sensor), if unknown set to Ta-8
+  eMLX90640_PollingState PollingState[2]; //!< This is the state of the polling
+  eMLX90640_LastMeasured LastSubFrame;    //!< This is the last measured subframe (the last calculated Frame To by the polling)
+  eERRORRESULT LastError[2];              //!< Last error of the frame polling
+} MLX90640_FramePolling;
+
 //-----------------------------------------------------------------------------
 
 
@@ -1060,40 +1063,23 @@ typedef struct MLX90640_FrameTo
 #define MLX90640_BIG_ENDIAN               (1u << MLX90640_ENDIANNESS_Pos) // Select the big endianness
 #define MLX90640_IS_LITTLE_ENDIAN(value)  (((value) & (1u << MLX90640_ENDIANNESS_Pos)) == 0) // Little endian CPU detected ?
 
+#define MLX90640_DMA_TRANSFER_IN_PROGRESS_Pos        ( 2 )
+#define MLX90640_DMA_TRANSFER_IN_PROGRESS            ( 1u << MLX90640_DMA_TRANSFER_IN_PROGRESS_Pos ) // DMA transfer in progress
+#define MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(value)  (((uint16_t)(value) & (1u << MLX90640_DMA_TRANSFER_IN_PROGRESS_Pos)) > 0) // Is DMA transfer in progress?
+#define MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET     (~MLX90640_DMA_TRANSFER_IN_PROGRESS)            // Mask to set no DMA transfer to the device
+
+#define MLX90640_TRANSACTION_NUMBER_Pos           ( 3 )
+#define MLX90640_TRANSACTION_NUMBER_Mask          ( 0x3F << MLX90640_TRANSACTION_NUMBER_Pos )
+#define MLX90640_TRANSACTION_NUMBER_SET(value)    (((uint16_t)(value) << MLX90640_TRANSACTION_NUMBER_Pos) & MLX90640_TRANSACTION_NUMBER_Mask) // Set the transaction number to internal config
+#define MLX90640_TRANSACTION_NUMBER_GET(value)    (((uint16_t)(value) & MLX90640_TRANSACTION_NUMBER_Mask) >> MLX90640_TRANSACTION_NUMBER_Pos) // Get the transaction number to internal config
+#define MLX90640_TRANSACTION_NUMBER_CLEAR(value)  value &= ~MLX90640_TRANSACTION_NUMBER_Mask // Clears the transaction number of internal config
+
 //-----------------------------------------------------------------------------
 
 
 
 typedef struct MLX90640 MLX90640; //! Typedef of MLX90640 device object structure
 typedef uint16_t TMLX90640DriverInternal; //! Alias for Driver Internal data flags
-
-
-
-/*! @brief Interface function for driver initialization of the MLX90640
- *
- * This function will be called at driver initialization to configure the interface driver
- * @param[in] *pIntDev Is the MLX90640.InterfaceDevice of the device that call the interface initialization
- * @param[in] sclFreq Is the SCL frequency in Hz to set at the interface initialization
- * @return Returns an #eERRORRESULT value enum
- */
-typedef eERRORRESULT (*MLX90640_I2CInit_Func)(void *pIntDev, const uint32_t sclFreq);
-
-
-/*! @brief Interface function for I2C transfer of the MLX90640
- *
- * This function will be called when the driver needs to transfer data over the I2C communication with the device
- * Can be a read of data or a transmit of data. It also indicate if it needs a start and/or a stop
- * The maximim data that the driver will transmit between a start and a stop/restart is 832*2 bytes
- * @warning A I2CInit_Func() must be called before using this function. DO NOT CHANGE THE ENDIANNESS OF THE BYTES RETURNED BY THIS FUNCTION
- * @param[in] *pIntDev Is the MLX90640.InterfaceDevice of the device that call the I2C transfer
- * @param[in] deviceAddress Is the device address on the bus (8-bits only). The LSB bit indicate if it is a I2C Read (bit at '1') or a I2C Write (bit at '0')
- * @param[in,out] *data Is a pointer to memory data to write in case of I2C Write, or where the data received will be stored in case of I2C Read (can be NULL if no data transfer other than chip address)
- * @param[in] byteCount Is the byte count to write over the I2C bus or the count of byte to read over the bus
- * @param[in] start Indicate if the transfer needs a start (in case of a new transfer) or restart (if the previous transfer have not been stopped)
- * @param[in] stop Indicate if the transfer needs a stop after the last byte sent
- * @return Returns an #eERRORRESULT value enum
- */
-typedef eERRORRESULT (*MLX90640_I2CTransfer_Func)(void *pIntDev, const uint8_t deviceAddress, uint8_t *data, size_t byteCount, bool start, bool stop);
 
 
 /*! @brief Function that give the current millisecond of the system to the driver
@@ -1108,26 +1094,28 @@ typedef uint32_t (*GetCurrentms_Func)(void);
 //! MLX90640 device object structure
 struct MLX90640
 {
-  void *UserDriverData;                     //!< Optional, can be used to store driver data or NULL
-  TMLX90640DriverInternal InternalConfig;   //!< DO NOT USE OR CHANGE THIS VALUE, IT'S THE INTERNAL DRIVER CONFIGURATION
+  void *UserDriverData;                   //!< Optional, can be used to store driver data or NULL
+  TMLX90640DriverInternal InternalConfig; //!< DO NOT USE OR CHANGE THIS VALUE, IT'S THE INTERNAL DRIVER CONFIGURATION
 
   //--- Interface driver params and call functions ---
-  uint8_t I2Caddress;                       //!< Device address set into the I2C address (0x800F) register. Use MLX90640_CHIPADDRESS_DEFAULT if you do not have change the address
-  void *InterfaceDevice;                    //!< This is the pointer that will be in the first parameter of all interface call functions
-  uint32_t I2CclockSpeed;                   //!< Clock frequency of the I2C interface in Hertz
-  MLX90640_I2CInit_Func fnI2C_Init;         //!< This function will be called at driver initialization to configure the interface driver
-  MLX90640_I2CTransfer_Func fnI2C_Transfer; //!< This function will be called when the driver needs to transfer data over the I2C communication with the device
+  uint8_t I2Caddress;                     //!< Device address set into the I2C address (0x800F) register. Use MLX90640_CHIPADDRESS_DEFAULT if you do not have change the address
+#ifdef USE_DYNAMIC_INTERFACE
+  I2C_Interface* I2C;                     //!< This is the I2C_Interface descriptor pointer that will be used to communicate with the device
+#else
+  I2C_Interface I2C;                      //!< This is the I2C_Interface descriptor that will be used to communicate with the device
+#endif
+  uint32_t I2CclockSpeed;                 //!< Clock frequency of the I2C interface in Hertz
 
   //--- Time call function ---
-  GetCurrentms_Func fnGetCurrentms;         //!< This function will be called when the driver need to get current millisecond
+  GetCurrentms_Func fnGetCurrentms;       //!< This function will be called when the driver need to get current millisecond
 
   //--- Device EEPROM ---
 #if !defined(MLX90640_PRECALCULATE_PIXELS_COEFFS)
-  MLX90640_EEPROM* EEPROM;                  //!< Device EEPROM. Need to store a dump of the device's EEPROM for further calculations
+  MLX90640_EEPROM* EEPROM;                //!< Device EEPROM. Need to store a dump of the device's EEPROM for further calculations
 #endif
 
   //--- Device parameters ---
-  MLX90640_Parameters* Params;              //!< Device parameters. Will be filled after calling the function MLX90640_ExtractDeviceParameters()
+  MLX90640_Parameters* Params;            //!< Device parameters. Will be filled after calling the function MLX90640_ExtractDeviceParameters()
 };
 
 //-----------------------------------------------------------------------------
@@ -1167,13 +1155,13 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf);
 
 
 
-/*! @brief Is the MLX90640 device ready
+/*! @brief Poll the MLX90640 device
  *
  * Poll the acknowledge from the MLX90640
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @return Returns 'true' if ready else 'false'
+ * @return Returns an #eERRORRESULT value enum
  */
-bool MLX90640_IsReady(MLX90640 *pComp);
+eERRORRESULT MLX90640_PollDevice(MLX90640 *pComp);
 
 
 
@@ -1207,11 +1195,24 @@ eERRORRESULT MLX90640_GetDeviceID(MLX90640 *pComp, eMLX90640_Devices* device, ui
  * This function reads data from the MLX90640 device. This function will convert the big-endian data (the device communicates in big endian) to the endianness of the CPU
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in] address Is the address to read
- * @param[in] *data Is where the data array will be stored
+ * @param[out] *data Is where the data array will be stored
  * @param[in] size Is the size of the data array to read (count of 16-bits data)
  * @return Returns an #eERRORRESULT value enum
  */
 eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t* data, size_t size);
+
+
+/*! @brief Read data with DMA from the MLX90640 device
+ *
+ * This function reads data using DMA from the MLX90640 device. This function will ask the I2C driver convert the big-endian data (the device communicates in big endian) to the endianness of the CPU
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in] address Is the address to read
+ * @param[out] *data Is where the data array will be stored
+ * @param[in] size Is the size of the data array to read (count of 16-bits data)
+ * @param[out] *configResult Is the result of the configuration of the transfer. This will contain the I2C_ENDIAN_RESULT of the transfer (usually if the I2C DMA transfer have done the endian transformation)
+ * @return Returns an #eERRORRESULT value enum
+ */
+eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, uint8_t* data, size_t size, I2C_Conf *configResult);
 
 
 /*! @brief Read a register from the MLX90640 device
@@ -1219,7 +1220,7 @@ eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t
  * This function reads a register from the MLX90640 device
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in] address Is the register address to read
- * @param[in] *data Is where the data will be stored
+ * @param[out] *data Is where the data will be stored
  * @return Returns an #eERRORRESULT value enum
  */
 inline eERRORRESULT MLX90640_ReadRegister(MLX90640 *pComp, const uint16_t address, uint16_t* data)
@@ -1357,6 +1358,21 @@ eERRORRESULT MLX90640_CorrectBadPixels(MLX90640 *pComp, MLX90640_FrameTo *result
 
 
 
+/*! @brief Get Frame To by polling on the MLX90640 device (asynchronous)
+ *
+ * This function, when called regularly, process a subframe while the other is retrieved by DMA.
+ * In case of no DMA, the function retrieves the subframe and process it directly
+ * @warning This function has a working buffer of 6,5kiB (MLX90640_FramePolling)
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in,out] *result Contains either the working frame data buffers and the result Frame To
+ * @return Returns an #eERRORRESULT value enum
+ */
+eERRORRESULT MLX90640_PollFrameTo(MLX90640 *pComp, MLX90640_FramePolling *result);
+
+//********************************************************************************************************************
+
+
+
 /*! @brief Invert endianness of an array of data
  *
  * Invert the endianness of the data array from big endian to little endian
@@ -1377,17 +1393,8 @@ inline void MLX90640_BigEndianToLittleEndian(uint16_t *data, size_t size)
 
 
 //-----------------------------------------------------------------------------
-#undef __PACKED__
-#undef PACKITEM
-#undef UNPACKITEM
-#undef ControlItemSize
-//-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* MLX90640_H_INC */
