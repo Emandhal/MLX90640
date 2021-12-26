@@ -40,11 +40,6 @@
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
-//-----------------------------------------------------------------------------
 #include "ErrorsDef.h"
 #include "I2C_Interface.h"
 //-----------------------------------------------------------------------------
@@ -155,7 +150,23 @@ typedef enum
 //********************************************************************************************************************
 // EERAM47x16 Driver API
 //********************************************************************************************************************
+
+#define EERAM47x16_DMA_TRANSFER_IN_PROGRESS_Pos        ( 0 )
+#define EERAM47x16_DMA_TRANSFER_IN_PROGRESS            ( 1u << EERAM47x16_DMA_TRANSFER_IN_PROGRESS_Pos ) // DMA transfer in progress
+#define EERAM47x16_IS_DMA_TRANSFER_IN_PROGRESS(value)  (((uint16_t)(value) & (1u << EERAM47x16_DMA_TRANSFER_IN_PROGRESS_Pos)) > 0) // Is DMA transfer in progress?
+#define EERAM47x16_NO_DMA_TRANSFER_IN_PROGRESS_SET     (~EERAM47x16_DMA_TRANSFER_IN_PROGRESS)            // Mask to set no DMA transfer to the device
+
+#define EERAM47x16_TRANSACTION_NUMBER_Pos           ( 1 )
+#define EERAM47x16_TRANSACTION_NUMBER_Mask          ( 0x3F << EERAM47x16_TRANSACTION_NUMBER_Pos )
+#define EERAM47x16_TRANSACTION_NUMBER_SET(value)    (((uint16_t)(value) << EERAM47x16_TRANSACTION_NUMBER_Pos) & EERAM47x16_TRANSACTION_NUMBER_Mask) // Set the transaction number to internal config
+#define EERAM47x16_TRANSACTION_NUMBER_GET(value)    (((uint16_t)(value) & EERAM47x16_TRANSACTION_NUMBER_Mask) >> EERAM47x16_TRANSACTION_NUMBER_Pos) // Get the transaction number to internal config
+#define EERAM47x16_TRANSACTION_NUMBER_CLEAR(value)  value &= ~EERAM47x16_TRANSACTION_NUMBER_Mask // Clears the transaction number of internal config
+
+//-----------------------------------------------------------------------------
+
+
 typedef struct EERAM47x16 EERAM47x16; //! Typedef of EERAM47x16 device object structure
+typedef uint8_t TEERAM47x16DriverInternal; //! Alias for Driver Internal data flags
 
 
 /*! @brief Function that gives the current millisecond of the system to the driver
@@ -170,21 +181,22 @@ typedef uint32_t (*GetCurrentms_Func)(void);
 //! EERAM47x16 device object structure
 struct EERAM47x16
 {
-  void *UserDriverData;             //!< Optional, can be used to store driver data or NULL
+  void *UserDriverData;                     //!< Optional, can be used to store driver data or NULL
+  TEERAM47x16DriverInternal InternalConfig; //!< DO NOT USE OR CHANGE THIS VALUE, IT'S THE INTERNAL DRIVER CONFIGURATION
 
   //--- Interface driver call functions ---
 #ifdef USE_DYNAMIC_INTERFACE
-  I2C_Interface* I2C;               //!< This is the I2C_Interface descriptor pointer that will be used to communicate with the device
+  I2C_Interface* I2C;                       //!< This is the I2C_Interface descriptor pointer that will be used to communicate with the device
 #else
-  I2C_Interface I2C;                //!< This is the I2C_Interface descriptor that will be used to communicate with the device
+  I2C_Interface I2C;                        //!< This is the I2C_Interface descriptor that will be used to communicate with the device
 #endif
-  uint32_t I2C_ClockSpeed;          //!< Clock frequency of the I2C interface in Hertz
+  uint32_t I2CclockSpeed;                   //!< Clock frequency of the I2C interface in Hertz
 
   //--- Time call function ---
-  GetCurrentms_Func fnGetCurrentms; //!< This function will be called when the driver need to get current millisecond
+  GetCurrentms_Func fnGetCurrentms;         //!< This function will be called when the driver need to get current millisecond
 
   //--- Device address ---
-  uint8_t AddrA2A1;                 //!< Device configurable address A2, and A1. You can use the macro EERAM47x16_ADDR() to help filling this parameter. Only these 3 lower bits are used: ....21.. where 2 is A2, 1 is A1, and '.' are fixed by device
+  uint8_t AddrA2A1;                         //!< Device configurable address A2, and A1. You can use the macro EERAM47x16_ADDR() to help filling this parameter. Only these 3 lower bits are used: ....21.. where 2 is A2, 1 is A1, and '.' are fixed by device
 };
 //-----------------------------------------------------------------------------
 
@@ -219,7 +231,7 @@ bool EERAM47x16_IsReady(EERAM47x16 *pComp);
  *
  * This function reads data from the SRAM area of a EERAM47x16 device
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @param[in] address Is the address to read (can be inside a page)
+ * @param[in] address Is the address to read
  * @param[out] *data Is where the data will be stored
  * @param[in] size Is the size of the data array to read
  * @return Returns an #eERRORRESULT value enum
@@ -236,6 +248,20 @@ eERRORRESULT EERAM47x16_ReadSRAMData(EERAM47x16 *pComp, uint16_t address, uint8_
  */
 eERRORRESULT EERAM47x16_ReadRegister(EERAM47x16 *pComp, uint8_t* data);
 
+
+/*! @brief Read SRAM data with DMA from the EERAM47x16 device
+ *
+ * To know the state of the DMA transfer, call this function. When the function returns ERR_OK, it means that the transfer is complete else it returns the current state/error
+ * In case of no DMA, the function act like a EERAM47x16_ReadSRAMData() function
+ * @warning Never touch the data processed by the DMA before its completion
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in] address Is the address to read
+ * @param[out] *data Is where the data will be stored
+ * @param[in] size Is the size of the data array to read
+ * @return Returns an #eERRORRESULT value enum
+ */
+eERRORRESULT EERAM47x16_ReadSRAMDataWithDMA(EERAM47x16 *pComp, uint16_t address, uint8_t* data, size_t size);
+
 //********************************************************************************************************************
 
 
@@ -244,7 +270,7 @@ eERRORRESULT EERAM47x16_ReadRegister(EERAM47x16 *pComp, uint8_t* data);
  *
  * This function writes data to the SRAM area of a EERAM47x16 device
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @param[in] address Is the address where data will be written (can be inside a page)
+ * @param[in] address Is the address where data will be stored
  * @param[in] *data Is the data array to store
  * @param[in] size Is the size of the data array to write
  * @return Returns an #eERRORRESULT value enum
@@ -258,11 +284,25 @@ eERRORRESULT EERAM47x16_WriteSRAMData(EERAM47x16 *pComp, uint16_t address, const
  * Use the address EERAM47x16_STATUS_REGISTER_ADDR (0x00) to write to the status register
  * Use the address EERAM47x16_COMMAND_REGISTER_ADDR (0x55) to write to the command register
  * @param[in] *pComp Is the pointed structure of the device to be used
- * @param[in] address Is the address where data will be written (can be inside a page)
+ * @param[in] address Is the address where data will be stored
  * @param[in] *data Is the data array to store
  * @return Returns an #eERRORRESULT value enum
  */
 eERRORRESULT EERAM47x16_WriteRegister(EERAM47x16 *pComp, uint8_t address, const uint8_t* data);
+
+
+/*! @brief Write SRAM data with DMA to the EERAM47x16 device
+ *
+ * To know the state of the DMA transfer, call this function. When the function returns ERR_OK, it means that the transfer is complete else it returns the current state/error
+ * In case of no DMA, the function act like a EERAM47x16_WriteSRAMData() function
+ * @warning Never touch the data processed by the DMA before its completion
+ * @param[in] *pComp Is the pointed structure of the device to be used
+ * @param[in] address Is the address where data will be stored
+ * @param[in] *data Is the data array to store
+ * @param[in] size Is the size of the data array to write
+ * @return Returns an #eERRORRESULT value enum
+ */
+eERRORRESULT EERAM47x16_WriteSRAMDataWithDMA(EERAM47x16 *pComp, uint16_t address, const uint8_t* data, size_t size);
 
 //********************************************************************************************************************
 

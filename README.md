@@ -28,11 +28,12 @@ To use this driver and device, you need:
 ## Installation
 
 ### Get the sources
-Get and add the 4 following files to your project
+Get and add the 5 following files to your project
 ```
 MLX90640.c
 MLX90640.h
 Conf_MLX90640_Template.h
+I2C_Interface.h
 ErrorsDef.h
 ```
 Copy or rename the file `Conf_MLX90640_Template.h` to `Conf_MLX90640.h`... Et voila!

@@ -47,8 +47,8 @@ eERRORRESULT Init_TCA9543A(TCA9543A *pComp)
   eERRORRESULT Error;
 
   //--- Initialize the interface ---
-  if (pComp->I2C_ClockSpeed > TCA9543A_I2C_CLOCK_MAX) return ERR__FREQUENCY_ERROR;
-  Error = pI2C->fnI2C_Init(pI2C, pComp->I2C_ClockSpeed);
+  if (pComp->I2CclockSpeed > TCA9543A_I2C_CLOCK_MAX) return ERR__FREQUENCY_ERROR;
+  Error = pI2C->fnI2C_Init(pI2C, pComp->I2CclockSpeed);
   if (Error != ERR_OK) return Error;                                                                      // If there is an error while calling fnI2C_Init() then return the Error
   pComp->InternalConfig = (TTCA9543ADriverInternal)(TCA9543A_CHANNELx_SET(TCA9543A_NO_CHANNEL_SELECTED)); // By default no channels are selected
 

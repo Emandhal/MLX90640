@@ -99,15 +99,6 @@
 // From module: System Clock Control - SAMV71 implementation
 #include <sysclk.h>
 
-// From module: TWI - Two-wire Interface High Speed
-#include <twihs.h>
-
-// From module: TWIHS - Two-Wire Interface High Speed- SAM implementation
-#include <sam_twihs/twihs_master.h>
-#include <sam_twihs/twihs_slave.h>
-#include <twihs_master.h>
-#include <twihs_slave.h>
-
 // From module: UART - Univ. Async Rec/Trans
 #include <uart.h>
 

@@ -128,10 +128,12 @@ extern "C" {
     X(ERR__SPI_COMM_ERROR      ,      , "SPI communication error"                               ) \
     X(ERR__SPI_CONFIG_ERROR    ,      , "SPI configuration error"                               ) \
     X(ERR__SPI_TIMEOUT         ,      , "SPI communication timeout"                             ) \
+    X(ERR__SPI_INVALID_DATA    ,      , "SPI invalid data"                                      ) \
     X(ERR__SPI_FREQUENCY_ERROR ,      , "SPI frequency error"                                   ) \
     X(ERR__SPI_OVERFLOW_ERROR  ,      , "SPI overflow error"                                    ) \
     X(ERR__SPI_UNDERFLOW_ERROR ,      , "SPI underflow error"                                   ) \
     X(ERR__SPI_BUSY            ,      , "SPI busy"                                              ) \
+    X(ERR__SPI_OTHER_BUSY      ,      , "SPI busy by other transfer"                            ) \
 /*  // I2C errors                                                                               */\
     X(ERR__I2C_NACK            , = 210, "Received a I2C not acknowledge"                        ) \
     X(ERR__I2C_NACK_ADDR       ,      , "Received a I2C not acknowledge while transferring addr") \

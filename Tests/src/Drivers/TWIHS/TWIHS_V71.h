@@ -52,6 +52,8 @@ extern "C" {
 
 #define XDMAC_TWIHS_PERID_Base  ( 14 ) //! Base of the TWIHS HW Interface Number (XDMAC_CC.PERID)
 
+#define TWIHS_TIMEOUT  ( 30000 ) //! Time-out value (number of attempts)
+
 //-----------------------------------------------------------------------------
 
 #if (SAMV70 || SAMV71 || SAME70 || SAMS70)

@@ -285,8 +285,8 @@ eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t
   I2CInterface_Packet PacketDesc;
   eERRORRESULT Error;
   uint8_t DataBuf[2];
-  uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
-  uint8_t ChipAddrR = (ChipAddrW | I2C_READ_ORMASK);
+  const uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
+  const uint8_t ChipAddrR = (ChipAddrW | I2C_READ_ORMASK);
 
   //--- Read data ---
   Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, false, I2C_WRITE_THEN_READ_FIRST_PART); // Start a read at address with the device
@@ -331,8 +331,8 @@ eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, u
 #endif
   I2CInterface_Packet PacketDesc;
   eERRORRESULT Error;
-  uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
-  uint8_t ChipAddrR = (ChipAddrW | I2C_READ_ORMASK);
+  const uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
+  const uint8_t ChipAddrR = (ChipAddrW | I2C_READ_ORMASK);
 
   //--- Check DMA ---
   if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig))
@@ -354,7 +354,6 @@ eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, u
   if (Error == ERR_OK)                                                                              // If there is no error while writing address then
   {
     const eI2C_EndianTransform EndianTransform = (MLX90640_IS_LITTLE_ENDIAN(pComp->InternalConfig) ? I2C_SWITCH_ENDIAN_16BITS : I2C_NO_ENDIAN_CHANGE);
-//    const eI2C_EndianTransform EndianTransform = I2C_NO_ENDIAN_CHANGE;
     PacketDesc.Config.Value = I2C_USE_POLLING | I2C_ENDIAN_TRANSFORM_SET(EndianTransform) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
     PacketDesc.ChipAddr     = ChipAddrR;
     PacketDesc.pBuffer      = data;
@@ -390,7 +389,7 @@ eERRORRESULT MLX90640_WriteData(MLX90640 *pComp, const uint16_t address, const u
   eERRORRESULT Error;
   uint8_t DataBuf[2];
   uint16_t* pData = (uint16_t*)data;
-  uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
+  const uint8_t ChipAddrW = (pComp->I2Caddress & MLX90640_CHIPADDRESS_MASK);
 
   //--- Program Address ---
   Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, false, I2C_WRITE_THEN_WRITE_FIRST_PART); // Start a write at address with the device

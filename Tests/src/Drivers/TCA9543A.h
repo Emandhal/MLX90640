@@ -153,7 +153,7 @@ struct TCA9543A
 #else
   I2C_Interface I2C;                      //!< This is the I2C_Interface descriptor that will be used to communicate with the device
 #endif
-  uint32_t I2C_ClockSpeed;                //!< Clock frequency of the I2C interface in Hertz
+  uint32_t I2CclockSpeed;                 //!< Clock frequency of the I2C interface in Hertz
 
   //--- Device address ---
   uint8_t AddrA1A0;                       //!< Device configurable address A1 and A0. You can use the macro TCA9543A_ADDR() to help filling this parameter. Only these 2 lower bits are used: .....10. where 1 is A1, 0 is A0, and '.' are fixed by device

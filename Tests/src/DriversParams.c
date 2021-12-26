@@ -41,7 +41,7 @@ struct EERAM47x16 EERAM47L16_V71 =
     .fnI2C_Init      = TWIHS_DMA_MasterInit_Gen,
     .fnI2C_Transfer  = TWIHS_PacketTransfer_Gen,
   },
-  .I2C_ClockSpeed  = BOARD_I2C_CLK_SPEED_HZ,
+  .I2CclockSpeed   = BOARD_I2C_CLK_SPEED_HZ,
   //--- Time call function ---
   .fnGetCurrentms  = GetCurrentms_V71,
   //--- Interface clocks ---
@@ -65,7 +65,7 @@ struct TCA9543A TCA9543A_V71 =
     .fnI2C_Init      = TWIHS_DMA_MasterInit_Gen,
     .fnI2C_Transfer  = TWIHS_PacketTransfer_Gen,
   },
-  .I2C_ClockSpeed    = BOARD_I2C_CLK_SPEED_HZ,
+  .I2CclockSpeed     = BOARD_I2C_CLK_SPEED_HZ,
   //--- Device address ---
   .AddrA1A0          = TCA9543A_ADDR(0, 0),
 };
