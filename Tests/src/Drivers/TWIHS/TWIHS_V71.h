@@ -20,13 +20,9 @@
 //-----------------------------------------------------------------------------
 #include "ErrorsDef.h"
 #include "I2C_Interface.h"
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 
 
@@ -36,7 +32,7 @@ extern "C" {
 #define TWIHS_I2CCLOCK_FM_MAX        (  400000u )               //!< Max I2C clock frequency in FM mode (Fast-Mode)
 #define TWIHS_I2CCLOCK_HSM_MAX       ( 3400000u )               //!< Max I2C clock frequency in HSM mode (High-Speed Mode)
 #define TWIHS_MASTER_MODE_CLOCK_MAX  ( TWIHS_I2CCLOCK_FM_MAX )  //!< Max I2C clock frequency in master mode
-#define TWIHS_SLAVE_MODE_CLOCK_MAX   ( TWIHS_I2CCLOCK_HSM_MAX ) //!< Max I2C clock frequency in master mode
+#define TWIHS_SLAVE_MODE_CLOCK_MAX   ( TWIHS_I2CCLOCK_HSM_MAX ) //!< Max I2C clock frequency in slave mode
 
 
 // Definitions
@@ -190,37 +186,61 @@ typedef struct TWIHS_TransferStruct
 // TWIHS driver API
 //********************************************************************************************************************
 
-// Atmel TWIHS master initialization
-//=============================================================================
+/*! @brief Atmel TWIHS master initialization
+ *
+ * It initialize the I2C and set its clock speed
+ * @param[in] *pTWIHS Is the TWIHS peripheral to initialize
+ * @param[in] sclFreq Is the desired frequency of the SCL pin of the TWIHS
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_MasterInit(Twihs* pTWIHS, const uint32_t sclFreq);
 eERRORRESULT TWIHS_MasterInit_Gen(I2C_Interface* pIntDev, const uint32_t sclFreq);
 
 
-// Get peripheral ID of the Atmel TWIHS
-//=============================================================================
+/*! @brief Get peripheral ID of the Atmel TWIHS
+ *
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @return The TWIHS peripheral ID. Returns TWIHS_INVALID_PERIPHERAL if not found
+ */
 uint32_t TWIHS_GetPeripheralID(Twihs* pTWIHS);
 
 
-// Get peripheral number of the Atmel TWIHS
-//=============================================================================
+/*! @brief Get peripheral number of the Atmel TWIHS
+ *
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @return The TWIHS peripheral number. Returns TWIHS_INVALID_PERIPHERAL if not found
+ */
 uint32_t TWIHS_GetPeripheralNumber(Twihs* pTWIHS);
 
 //-----------------------------------------------------------------------------
 
 
 
-// Enable interrupts of the Atmel TWIHS
-//=============================================================================
+/*! @brief Enable interrupts of the Atmel TWIHS
+ *
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @param[in] sourcesInterrupts Source interrupts to enable (can be OR'ed)
+ * @param[in] enableNVIC Set to 'true' to enable the peripheral in the NVIC. Setting 'false' does not disable the peripheral in the NVIC
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_InterruptEnable(Twihs* pTWIHS, uint32_t sourcesInterrupts, bool enableNVIC);
 
 
-// Disable interrupts of the Atmel TWIHS
-//=============================================================================
+/*! @brief Disable interrupts of the Atmel TWIHS
+ *
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @param[in] sourcesInterrupts Source interrupts to disable (can be OR'ed)
+ * @param[in] disableNVIC Set to 'true' to disable the peripheral in the NVIC. Setting 'false' does not enable the peripheral in the NVIC
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_InterruptDisable(Twihs* pTWIHS, uint32_t sourcesInterrupts, bool disableNVIC);
 
 
-// Get interrupt status of the Atmel TWIHS
-//=============================================================================
+/*! @brief Get interrupt status of the Atmel TWIHS
+ *
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @return Returns the actual interrupt status of the peripheral
+ */
 inline uint32_t TWIHS_GetInterruptStatus(Twihs* pTWIHS)
 {
   return pTWIHS->TWIHS_SR;
@@ -230,29 +250,44 @@ inline uint32_t TWIHS_GetInterruptStatus(Twihs* pTWIHS)
 
 
 
-// Reset the Atmel TWIHS
-//=============================================================================
+/*! @brief Reset the Atmel TWIHS
+ * @param[in] *pTWIHS Is the TWIHS peripheral to reset
+ */
 void TWIHS_Reset(Twihs* pTWIHS);
 
 
-// Recover an I2C bus of the Atmel TWIHS
-//=============================================================================
+/*! @brief Recover an I2C bus of the Atmel TWIHS
+ *
+ * When a the CPU is reset when transfering data, the stop is not sent. This function will search where the current data blocked and recover the bus
+ * @param[in] *pTWIHS Is the TWIHS peripheral to recover
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_BusRecovery(Twihs* pTWIHS);
 
 //-----------------------------------------------------------------------------
 
 
 
-// Set the I2C SCL clock in Hertz of the Atmel TWIHS
-//=============================================================================
+/*! @brief Set the I2C SCL clock in Hertz of the Atmel TWIHS
+ *
+ * Calculate the timings parameters and set them to the TWIHS peripheral
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @param[in] desiredClockHz Is the desired SCL clock speed
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_SetI2CclockHz(Twihs* pTWIHS, uint32_t desiredClockHz);
 
 //-----------------------------------------------------------------------------
 
 
 
-// Hardware I2C data transfer communication for the Atmel TWIHS
-//=============================================================================
+/*! @brief Hardware I2C data transfer communication for the Atmel TWIHS
+ *
+ * This function takes care of the transfer of the specified packet following the I2C_Interface specification
+ * @param[in] *pTWIHS Is the TWIHS peripheral to use
+ * @param[in] *pPacketDesc(deviceAddress,*data,byteCount,start,stop) Is the packet configuration to transfer
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_Transfer(Twihs* pTWIHS, I2CInterface_Packet* const pPacketDesc);
 eERRORRESULT TWIHS_Transfer_Gen(I2C_Interface *pIntDev, const uint8_t deviceAddress, uint8_t *data, size_t byteCount, bool start, bool stop);
 
@@ -266,14 +301,25 @@ eERRORRESULT TWIHS_Transfer_Gen(I2C_Interface *pIntDev, const uint8_t deviceAddr
 // TWIHS with DMA driver API
 //********************************************************************************************************************
 
-// Atmel TWIHS master with DMA initialization
-//=============================================================================
+/*! @brief Atmel TWIHS master with DMA initialization
+ *
+ * It initialize the I2C and set its clock speed. It will prepare a DMA channel for transfer
+ * @param[in] *pIntDev Is the TWIHS peripheral to initialize
+ * @param[in] sclFreq Is the desired frequency of the SCL pin of the TWIHS
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_DMA_MasterInit(Twihs *pIntDev, const uint32_t sclFreq);
 eERRORRESULT TWIHS_DMA_MasterInit_Gen(I2C_Interface *pIntDev, const uint32_t sclFreq);
 
 
-// Hardware I2C data transfer with DMA communication for the Atmel TWIHS
-//=============================================================================
+/*! @brief Hardware I2C data transfer with DMA communication for the Atmel TWIHS
+ *
+ * This function takes care of the transfer of the specified packet following the I2C_Interface specification
+ * It configures a DMA channel for the transfer. If no DMA transfer is specified, the function will redirect to the TWIHS_Transfer() function
+ * @param[in] *pIntDev Is the TWIHS peripheral to use
+ * @param[in] *pPacketDesc Is the packet configuration to transfer
+ * @return Returns an #eERRORRESULT value enum
+ */
 eERRORRESULT TWIHS_PacketTransfer(Twihs *pIntDev, I2CInterface_Packet* const pPacketDesc);
 eERRORRESULT TWIHS_PacketTransfer_Gen(I2C_Interface *pIntDev, I2CInterface_Packet* const pPacketDesc);
 
@@ -284,12 +330,8 @@ eERRORRESULT TWIHS_PacketTransfer_Gen(I2C_Interface *pIntDev, I2CInterface_Packe
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* TWIHS_V71_H_INC */

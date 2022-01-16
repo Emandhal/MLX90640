@@ -18,13 +18,9 @@
 //#include "core_cm7.h
 //-----------------------------------------------------------------------------
 #include "ErrorsDef.h"
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 
 
@@ -270,7 +266,7 @@ typedef struct
 
 
 /*! @brief Atmel XDMAC initialization
- * @param[in] *pXDMAC Is a XDMAC peripheral to initialize
+ * @param[in] *pXDMAC Is the XDMAC peripheral to initialize
  * @param[in] enableNVIC Set the NVIC status. 'true' to enable the NVIC, 'false to disable the NVIC
  * @param[in] nvicPriority Set the NVIC priority. Only 8 levels of priority
  */
@@ -462,12 +458,8 @@ eERRORRESULT XDMAC_ChannelSoftwareFlushRequest(HandleXDMAC handleDMA);
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* XDMAC_V71_H_INC */

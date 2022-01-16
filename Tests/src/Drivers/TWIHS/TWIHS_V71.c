@@ -14,16 +14,12 @@
 #include "TWIHS_V71.h"
 #include "XDMAC_V71.h"
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifndef __cplusplus
 #  include <asf.h>
 #else
 #  include <cstdint>
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 
 static HandleXDMAC __HasReservedDMAchannel[TWIHS_COUNT] =
@@ -63,7 +59,7 @@ COMPILER_WORD_ALIGNED static XDMAC_ChannelConfig __XDMAC_I2Cconfig; // XDMAC I2C
 //-----------------------------------------------------------------------------
 
 
-#define TWI0_IRQ_level 0
+#define TWI_IRQ_level 0
 
 
 //=============================================================================
@@ -647,6 +643,9 @@ static eERRORRESULT __TWIHS_DMA_Transfer(Twihs *pTWIHS, I2CInterface_Packet* con
 {
   eERRORRESULT Error;
   uint32_t PeriphNumber = TWIHS_GetPeripheralNumber(pTWIHS);
+  if (PeriphNumber == TWIHS_INVALID_PERIPHERAL) return ERR__PERIPHERAL_NOT_VALID;
+  uint32_t PeriphID = TWIHS_GetPeripheralID(pTWIHS);
+  if (PeriphID == TWIHS_INVALID_PERIPHERAL) return ERR__PERIPHERAL_NOT_VALID;
 
   //--- Check the state of the transfer ---
   switch (__TWIHStransferList[PeriphNumber].Status)
@@ -680,8 +679,8 @@ static eERRORRESULT __TWIHS_DMA_Transfer(Twihs *pTWIHS, I2CInterface_Packet* con
   pTWIHS->TWIHS_MMR |= TWIHS_MMR_DADR(pPacketDesc->ChipAddr >> 1) // Device address
                      | (DeviceWrite ? 0 : TWIHS_MMR_MREAD);       // Read or write?
  // Configure and enable interrupt of TWIHS
-  NVIC_EnableIRQ(ID_TWIHS0);
-  NVIC_SetPriority(ID_TWIHS0, TWI0_IRQ_level);
+  NVIC_EnableIRQ(PeriphID);
+  NVIC_SetPriority(PeriphID, TWI_IRQ_level);
   Error = TWIHS_InterruptDisable(pTWIHS, TWIHS_ALL_INTERRUPTS, false);
   if (Error != ERR_OK) return Error;
 
@@ -922,11 +921,7 @@ eERRORRESULT TWIHS_PacketTransfer_Gen(I2C_Interface *pIntDev, I2CInterface_Packe
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
