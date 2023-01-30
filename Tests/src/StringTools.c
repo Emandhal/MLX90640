@@ -317,7 +317,7 @@ float String_ToFloat(char* buff)
 
   float Result = (float)IntPart + ((float)FracPart / (float)Pow10); // Here, Pow10 could not be 0 (start from 1 and multiply by 10)
   if (Sign)                                                         // If negative value...
-  return -Result;                                                 // Then return a negative float
+    return -Result;                                                 // Then return a negative float
   return Result;                                                    // In all cases, return
 }
 

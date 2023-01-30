@@ -16,55 +16,57 @@
 /**INDENT-OFF**/
 #include "stdio.h"
 #include <stdarg.h>
+#include "Conf_Console.h"
 
 #ifndef __cplusplus
 # include "asf.h"
 #else
 extern "C" {
-  void SetConsoleColor(int text, int fond);
 #endif
 /**INDENT-ON**/
 /// @endcond
 //-----------------------------------------------------------------------------
 
-
-
 #ifndef __cplusplus
 
-#	define __FORMATPRINTF23__		__attribute__((__format__(__printf__, 2, 3))) // 2: Format at second argument ; 3: args at third argument (...)
-#	define __FORMATPRINTF40__		__attribute__((__format__(__printf__, 4, 0))) // 4: Format at fourth argument ; 0: for va_list
-#	define __FORMATPRINTF34__		__attribute__((__format__(__printf__, 3, 4))) // 3: Format at third  argument ; 3: args at fourth argument (...)
-#	define vprintf              viprintf
+#  define __FORMATPRINTF23__   __attribute__((__format__(__printf__, 2, 3))) // 2: Format at second argument ; 3: args at third argument (...)
+#  define __FORMATPRINTF30__   __attribute__((__format__(__printf__, 3, 0))) // 3: Format at third  argument ; 0: for va_list
+#  define __FORMATPRINTF34__   __attribute__((__format__(__printf__, 3, 4))) // 3: Format at third  argument ; 4: args at fourth argument (...)
+#  define __FORMATPRINTF40__   __attribute__((__format__(__printf__, 4, 0))) // 4: Format at fourth argument ; 0: for va_list
+#  define vprintf              viprintf
 
 #else
 
-#	define __FORMATPRINTF12__
-#	define __FORMATPRINTF20__
-#	define __FORMATPRINTF23__
+#  define __FORMATPRINTF23__
+#  define __FORMATPRINTF30__
+#  define __FORMATPRINTF34__
+#  define __FORMATPRINTF40__
 
 #endif
+
 //-----------------------------------------------------------------------------
 
 
 //********************************************************************************************************************
 // Console Receive API
 //********************************************************************************************************************
+#ifdef USE_CONSOLE_RX
 
 //! Circular Buffer for Console transmit structure
 typedef struct ConsoleRx ConsoleRx;
 struct ConsoleRx
 {
-  void *UserAPIData;                                    //!< Optional, can be used to store API data or NULL
+  void *UserAPIData;                                   //!< Optional, can be used to store API data or NULL
 
   //--- Interface driver call functions ---
-  void (*fnInterfaceInit)(ConsoleRx *pApi);             //!< This function will be called at API initialization to configure the interface driver (UART)
-  bool (*fnGetChar)(ConsoleRx *pApi, char *charToSend); //!< This function will be called when a character have to be get from the interface
+  void (*fnInterfaceInit)(ConsoleRx *pApi);            //!< This function will be called at API initialization to configure the interface driver (UART)
+  bool (*fnGetChar)(ConsoleRx *pApi, char *charToGet); //!< This function will be called when a character have to be get from the interface
 
   //--- Transmit buffer ---
-  volatile size_t InPos;                                //!< This is the input position in the buffer (where data will be write before being send to UART)
-  volatile size_t OutPos;                               //!< This is the output position in the buffer (where data will be read and send to UART)
-  size_t BufferSize;                                    //!< The buffer size
-  char *Buffer;                                         //!< The buffer itself (should be the same size as BufferSize)
+  volatile size_t InPos;                               //!< This is the input position in the buffer (where data will be write before being send to UART)
+  volatile size_t OutPos;                              //!< This is the output position in the buffer (where data will be read and send to UART)
+  size_t BufferSize;                                   //!< The buffer size
+  char *Buffer;                                        //!< The buffer itself (should be the same size as BufferSize)
 };
 //-----------------------------------------------------------------------------
 
@@ -76,6 +78,9 @@ struct ConsoleRx
  */
 void InitConsoleRx(ConsoleRx* pApi);
 
+//-----------------------------------------------------------------------------
+#endif /* USE_CONSOLE_RX */
+
 //**********************************************************************************************************************************************************
 
 
@@ -85,6 +90,7 @@ void InitConsoleRx(ConsoleRx* pApi);
 //********************************************************************************************************************
 // Console Transmit API
 //********************************************************************************************************************
+#ifdef USE_CONSOLE_TX
 
 //! Circular Buffer for Console transmit structure
 typedef struct ConsoleTx ConsoleTx;
@@ -102,6 +108,7 @@ struct ConsoleTx
   size_t BufferSize;                                    //!< The buffer size
   char *Buffer;                                         //!< The buffer itself (should be the same size as BufferSize)
 };
+
 //-----------------------------------------------------------------------------
 
 
@@ -155,6 +162,22 @@ inline bool IsCharToSendToConsole(ConsoleTx* pApi)
   return (pApi->OutPos != pApi->InPos);
 }
 
+
+
+/*! @brief Convert a char to a digit value
+ *
+ * @param[in] aChar The char to convert
+ * @return return the digit value
+ */
+inline uint32_t CharToDigit(const char aChar)
+{
+  return (uint32_t)(aChar - '0');
+}
+
+
+
+//! Macro to get the lower case of a char
+#define LowerCase(x)  (((((unsigned int)(x)) - 'A') < 26) ? (x) + 32 : (x))
 //**********************************************************************************************************************************************************
 
 
@@ -170,8 +193,32 @@ typedef enum
   lsTrace   = 5, //! Trace log only
   lsDebug   = 6, //! For Debugging purpose. Emitted only when DEBUG is defined
   lsSpecial = 7, //! For Debugging purpose. Emitted only when DEBUG is defined
-  lsLast_,       //! Special value. Don't use and keep this the last value
+  lsLast_,       //! Special value. Do not use and keep this the last value
 } eSeverity;
+
+//! Windows console colors
+typedef enum
+{
+  wccBLACK   = 0,
+  wccNAVY    = 1,
+  wccGREEN   = 2,
+  wccTEAL    = 3,
+  wccMAROON  = 4,
+  wccPURPLE  = 5,
+  wccOLIVE   = 6,
+  wccSILVER  = 7,
+  wccGRAY    = 8,
+  wccBLUE    = 9,
+  wccLIME    = 10,
+  wccAQUA    = 11,
+  wccRED     = 12,
+  wccFUCHISA = 13,
+  wccYELLOW  = 14,
+  wccWHITE   = 15,
+  wccLast_, // KEEP LAST!
+} eWinConsoleColor;
+
+//-----------------------------------------------------------------------------
 
 
 
@@ -188,7 +235,7 @@ void __LOG(ConsoleTx* pApi, const char* context, bool whiteText, const char* for
 
 
 
-/*! @brief Send a formated ESQS+ Logs to console
+/*! @brief Send a formated Logs to console
  *
  * @param[in] *pApi Is the Console transmit API to work with
  * @param[in] severity This is the log severity.
@@ -200,6 +247,15 @@ void LOG(ConsoleTx* pApi, eSeverity severity, const char* format, ...) __FORMATP
 
 
 #ifdef __cplusplus
+/*! @brief Set the Windows console color
+ *
+ * @param[in] text Is the text color of the Windows console
+ * @param[in] fond Is the background color of the Windows console
+ */
+void SetConsoleColor(eWinConsoleColor text, eWinConsoleColor background);
+
+
+
 /*! @brief Send a formated Simulation Logs to console
  *
  * @param[in] *pApi Is the Console transmit API to work with
@@ -255,15 +311,18 @@ void __BinDump(ConsoleTx* pApi, const char* context, const void* src, unsigned i
   //! Log Special, use it instead of LOG!
   #define LOGSPECIAL_(api, format, ...)         LOG(api, lsSpecial, format, ##__VA_ARGS__)
   //! Hexadecimal dump of memory
-  #define HEXDUMP_(api, context, src, size)     __HexDump(context, src, size)
+  #define HEXDUMP_(api, context, src, size)     __HexDump(api, context, src, size)
   //! Binary dump of memory
-  #define BINDUMP_(api, context, src, size)     __BinDump(context, src, size)
+  #define BINDUMP_(api, context, src, size)     __BinDump(api, context, src, size)
 #else
   #define LOGDEBUG_(api, format, ...)           do{}while(false)
   #define LOGSPECIAL_(api, format, ...)         do{}while(false)
   #define HEXDUMP_(api, context, src, size)     do{}while(false)
   #define BINDUMP_(api, context, src, size)     do{}while(false)
 #endif
+
+//-----------------------------------------------------------------------------
+#endif /* USE_CONSOLE_TX */
 
 
 

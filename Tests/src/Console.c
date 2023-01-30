@@ -20,18 +20,6 @@
 #ifdef __cplusplus
 #include "stdafx.h"
 extern "C" {
-  void SetConsoleColor(int text, int fond)
-  {// 0: noir          8: gris
-   // 1: bleu foncé    9: bleu
-   // 2: vert         10: vert fluo
-   // 3: bleu-gris    11: turquoise
-   // 4: marron       12: rouge
-   // 5: pourpre      13: rose fluo
-   // 6: kaki         14: jaune fluo
-   // 7: gris clair   15: blanc
-    HANDLE H = GetStdHandle(STD_OUTPUT_HANDLE);
-    SetConsoleTextAttribute(H, (fond << 4) + text);
-  }
 #endif
 /**INDENT-ON**/
 /// @endcond
@@ -42,6 +30,9 @@ extern "C" {
 
 
 //**********************************************************************************************************************************************************
+#ifdef USE_CONSOLE_RX
+
+
 //=============================================================================
 // Initialize the Console Reception
 //=============================================================================
@@ -60,9 +51,17 @@ void InitConsoleRx(ConsoleRx* pApi)
   memset(pApi->Buffer, 0, (sizeof(pApi->Buffer[0]) * pApi->BufferSize));
 }
 
+//-----------------------------------------------------------------------------
+#endif /* USE_CONSOLE_RX */
+
+
+
 
 
 //**********************************************************************************************************************************************************
+#ifdef USE_CONSOLE_TX
+
+
 //=============================================================================
 // Initialize the Console Transmit
 //=============================================================================
@@ -188,14 +187,14 @@ void __LOG(ConsoleTx* pApi, const char* context, bool whiteText, const char* for
 #ifdef __cplusplus
 const int SeverityColors[(size_t)lsLast_] =
 {
-  lsTitle   = 10, // lsTitle   -> Color: Text=green  ; Background=black
-  lsFatal   = 12, // lsFatal   -> Color: Text=red    ; Background=black
-  lsError   = 12, // lsError   -> Color: Text=red    ; Background=black
-  lsWarning = 14, // lsWarning -> Color: Text=yellow ; Background=black
-  lsInfo    = 11, // lsInfo    -> Color: Text=blue   ; Background=black
-  lsTrace   = 15, // lsTrace   -> Color: Text=white  ; Background=black
-  lsDebug   =  8, // lsDebug   -> Color: Text=grey   ; Background=black
-  lsSpecial =  6, // lsSpecial -> Color: Text=kaki   ; Background=black
+  lsTitle   = wccLIME  , // lsTitle   -> Color: Text=green  ; Background=black
+  lsFatal   = wccRED   , // lsFatal   -> Color: Text=red    ; Background=black
+  lsError   = wccRED   , // lsError   -> Color: Text=red    ; Background=black
+  lsWarning = wccYELLOW, // lsWarning -> Color: Text=yellow ; Background=black
+  lsInfo    = wccAQUA  , // lsInfo    -> Color: Text=blue   ; Background=black
+  lsTrace   = wccWHITE , // lsTrace   -> Color: Text=white  ; Background=black
+  lsDebug   = wccGRAY  , // lsDebug   -> Color: Text=grey   ; Background=black
+  lsSpecial = wccOLIVE , // lsSpecial -> Color: Text=kaki   ; Background=black
 };
 #else
 const char* SeverityColors[(size_t)lsLast_] =
@@ -222,18 +221,31 @@ void LOG(ConsoleTx* pApi, eSeverity severity, const char* format, ...)
   va_start(args, format);
 
 #ifdef __cplusplus
-  SetConsoleColor(SeverityColors[(size_t)severity], 0);
+  SetConsoleColor(SeverityColors[(size_t)severity], wccBLACK);
 #else
   SetStrToConsoleBuffer(pApi, SeverityColors[(size_t)severity]);
 #endif
 
-  bool KeepColorFor = (severity == lsFatal) | (severity == lsDebug);
+  bool KeepColorFor = (severity == lsFatal) || (severity == lsDebug);
   __LOG(pApi, "DEMO", !KeepColorFor, format, args);
 
   va_end(args);
 }
 
+
+
 #ifdef __cplusplus
+//=============================================================================
+// Set the Windows console color
+//=============================================================================
+void SetConsoleColor(eWinConsoleColor text, eWinConsoleColor background)
+{
+  HANDLE H = GetStdHandle(STD_OUTPUT_HANDLE);
+  SetConsoleTextAttribute(H, ((int)background << 4) + (int)text);
+}
+
+
+
 //=============================================================================
 // Send a formated Simulation Logs to console
 //=============================================================================
@@ -243,7 +255,7 @@ void LOGSIM(ConsoleTx* pApi, const char* format, ...)
   va_start(args, format);
 
 #ifdef __cplusplus
-  SetConsoleColor(3, 0);                      // Color: Text=blue-grey ; Background=black
+  SetConsoleColor(wccTEAL, wccBLACK);         // Color: Text=blue-grey ; Background=black
 #else
   SetStrToConsoleBuffer(pApi,"\x001B[0;96m"); // Color: Text=cyan bright ; Background=black
 #endif
@@ -343,6 +355,9 @@ void __BinDump(ConsoleTx* pApi, const char* context, const void* src, unsigned i
   #undef ROW_LENGTH
 }
 #endif
+
+//-----------------------------------------------------------------------------
+#endif /* USE_CONSOLE_TX */
 
 
 
