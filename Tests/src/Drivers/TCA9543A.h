@@ -1,11 +1,10 @@
-/*******************************************************************************
+/*!*****************************************************************************
  * @file    TCA9543A.h
  * @author  Fabien 'Emandhal' MAILLY
  * @version 1.0.0
  * @date    27/02/2020
  * @brief   TCA9543A driver
- *
- * Low Voltage 2-Channel I2C Bus Switch With Interrupt Logic And Reset
+ * @details Low Voltage 2-Channel I2C Bus Switch With Interrupt Logic And Reset
  * Follow datasheet SCPS206B Rev B (Mar 2014)
  ******************************************************************************/
  /* @page License

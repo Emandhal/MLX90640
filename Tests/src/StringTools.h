@@ -1,13 +1,10 @@
-/*******************************************************************************
-    File name:    StringTools.h
-    Author:       FMA
-    Version:      1.0
-    Date (d/m/y): 15/02/2021
-    Description:  Tool to convert data to string and string to data in fixed
-                  buffers
-
-    History :
-*******************************************************************************/
+/*!*****************************************************************************
+ * @file    StringTools.h
+ * @author  Fabien 'Emandhal' MAILLY
+ * @version 1.0.0
+ * @date    15/02/2021
+ * @brief   Tool to convert data to string and string to data in fixed buffers
+ ******************************************************************************/
 #ifndef STRING_TOOLS_H_INC
 #define STRING_TOOLS_H_INC
 //=============================================================================
@@ -18,34 +15,10 @@
 #include <stddef.h>
 #include <stdlib.h>
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
-
-
-
-
-
-/*! @brief Convert a char to a digit value
- *
- * @param[in] aChar The char to convert
- * @return return the digit value
- */
-inline uint32_t CharToDigit(const char aChar)
-{
-  return (uint32_t)(aChar - '0');
-}
-
-
-//! Macro to get the lower case of a char
-#define LowerCase(x)  ( ((((unsigned int)(x)) - 'A') < 26) ? (x) + 32 : (x) )
-
-//**********************************************************************************************************************************************************
 
 
 
@@ -181,12 +154,8 @@ size_t Float_ToString(float Val, char* buff, size_t buffSize, uint32_t IntDigits
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* STRING_TOOLS_H_INC */

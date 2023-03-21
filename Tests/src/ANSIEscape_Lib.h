@@ -1,19 +1,15 @@
-/*******************************************************************************
-  File name:    ANSIEscape_Lib.h
-  Author:       FMA
-  Version:      1.0
-  Date (d/m/y): 08/12/2017
-  Description:  Some functions for ANSI Escape console communication
-
-  History :
-*******************************************************************************/
+/*!*****************************************************************************
+ * @file    ANSIEscape_Lib.h
+ * @author  Fabien 'Emandhal' MAILLY
+ * @version 1.0.0
+ * @date    08/12/2017
+ * @brief   Some functions for ANSI Escape console communication
+ ******************************************************************************/
 #ifndef ANSIESCAPELIB_H_
 #define ANSIESCAPELIB_H_
 //=============================================================================
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #include "stdio.h"
 #include <stdarg.h>
 #include "Console.h"
@@ -22,8 +18,6 @@
 #else
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 
 
@@ -87,25 +81,25 @@ typedef enum
 typedef enum
 {
 // Escape sequences for Cursor Movement
-  ANSIESC_CURSOR_UP         = 'A', // \e[#A - Moves the cursor up by the specified number of lines without changing columns. If the cursor is already on the top line, this sequence is ignored. \e[A is equivalent to \e[1A.
-  ANSIESC_CURSOR_DOWN       = 'B', // \e[#B - Moves the cursor down by the specified number of lines without changing columns. If the cursor is already on the bottom line, this sequence is ignored. \e[B is equivalent to \e[1B.
-  ANSIESC_CURSOR_FORWARD    = 'C', // \e[#C - Moves the cursor forward by the specified number of columns without changing lines. If the cursor is already in the rightmost column, this sequence is ignored. \e[C is equivalent to \e[1C.
-  ANSIESC_CURSOR_BACKWARD   = 'D', // \e[#D - Moves the cursor back by the specified number of columns without changing lines. If the cursor is already in the leftmost column, this sequence is ignored. \e[D is equivalent to \e[1D.
-  ANSIESC_CURSOR_NEXTLINE   = 'E', // \e[#E - Moves the cursor down the indicated # of rows, to column 1. \e[E is equivalent to \e[1E.
-  ANSIESC_CURSOR_PREVLINE   = 'F', // \e[#F - Moves the cursor up the indicated # of rows, to column 1. \e[F is equivalent to \e[1F.
-  ANSIESC_CURSOR_CURABSH    = 'G', // \e[#G - Moves the cursor to indicated column in current row. \e[G is equivalent to \e[1G.
-  ANSIESC_CURSOR_CURPOS     = 'H', // \e[#;#H - Moves the cursor to the specified position. The first # specifies the line number, the second # specifies the column. If you do not specify a position, the cursor moves to the home position: the upper-left corner of the screen (line 1, column 1).
-  ANSIESC_CURSOR_CURSAVE    = 's', // \e[s - Save Cursor Position: Saves the current cursor position. You can move the cursor to the saved cursor position by using the Restore Cursor Position sequence.
-  ANSIESC_CURSOR_CURRESTO   = 'u', // \e[u - Restore Cursor Position: Returns the cursor to the position stored by the Save Cursor Position sequence.
+  ANSIESC_CURSOR_UP         = 'A', //!< \e[#A - Moves the cursor up by the specified number of lines without changing columns. If the cursor is already on the top line, this sequence is ignored. \e[A is equivalent to \e[1A.
+  ANSIESC_CURSOR_DOWN       = 'B', //!< \e[#B - Moves the cursor down by the specified number of lines without changing columns. If the cursor is already on the bottom line, this sequence is ignored. \e[B is equivalent to \e[1B.
+  ANSIESC_CURSOR_FORWARD    = 'C', //!< \e[#C - Moves the cursor forward by the specified number of columns without changing lines. If the cursor is already in the rightmost column, this sequence is ignored. \e[C is equivalent to \e[1C.
+  ANSIESC_CURSOR_BACKWARD   = 'D', //!< \e[#D - Moves the cursor back by the specified number of columns without changing lines. If the cursor is already in the leftmost column, this sequence is ignored. \e[D is equivalent to \e[1D.
+  ANSIESC_CURSOR_NEXTLINE   = 'E', //!< \e[#E - Moves the cursor down the indicated # of rows, to column 1. \e[E is equivalent to \e[1E.
+  ANSIESC_CURSOR_PREVLINE   = 'F', //!< \e[#F - Moves the cursor up the indicated # of rows, to column 1. \e[F is equivalent to \e[1F.
+  ANSIESC_CURSOR_CURABSH    = 'G', //!< \e[#G - Moves the cursor to indicated column in current row. \e[G is equivalent to \e[1G.
+  ANSIESC_CURSOR_CURPOS     = 'H', //!< \e[#;#H - Moves the cursor to the specified position. The first # specifies the line number, the second # specifies the column. If you do not specify a position, the cursor moves to the home position: the upper-left corner of the screen (line 1, column 1).
+  ANSIESC_CURSOR_CURSAVE    = 's', //!< \e[s - Save Cursor Position: Saves the current cursor position. You can move the cursor to the saved cursor position by using the Restore Cursor Position sequence.
+  ANSIESC_CURSOR_CURRESTO   = 'u', //!< \e[u - Restore Cursor Position: Returns the cursor to the position stored by the Save Cursor Position sequence.
 
 // Escape sequences for Line and Char Edition
-  ANSIESC_INSERT_LINES      = 'L', // \e[#L - The cursor line and all lines below it move down # lines, leaving blank space. The cursor position is unchanged. The bottommost # lines are lost. \e[L is equivalent to \e[1L.
-  ANSIESC_DELETE_LINES      = 'M', // \e[#M - The block of # lines at and below the cursor are deleted; all lines below them move up # lines to fill in the gap, leaving # blank lines at the bottom of the screen. The cursor position is unchanged. \e[M is equivalent to \e[1M.
-  ANSIESC_INSERT_CHARACTERS = '@', // \e[#\@ - The cursor character and all characters to the right of it move right # columns, leaving behind blank space. The cursor position is unchanged. The rightmost # characters on the line are lost. \e[\@ is equivalent to \e[1\@.
-  ANSIESC_DELETE_CHARACTERS = 'P', // \e[#P - The block of # characters at and to the right of the cursor are deleted; all characters to the right of it move left # columns, leaving behind blank space. The cursor position is unchanged. \e[P is equivalent to \e[1P.
+  ANSIESC_INSERT_LINES      = 'L', //!< \e[#L - The cursor line and all lines below it move down # lines, leaving blank space. The cursor position is unchanged. The bottommost # lines are lost. \e[L is equivalent to \e[1L.
+  ANSIESC_DELETE_LINES      = 'M', //!< \e[#M - The block of # lines at and below the cursor are deleted; all lines below them move up # lines to fill in the gap, leaving # blank lines at the bottom of the screen. The cursor position is unchanged. \e[M is equivalent to \e[1M.
+  ANSIESC_INSERT_CHARACTERS = '@', //!< \e[#\@ - The cursor character and all characters to the right of it move right # columns, leaving behind blank space. The cursor position is unchanged. The rightmost # characters on the line are lost. \e[\@ is equivalent to \e[1\@.
+  ANSIESC_DELETE_CHARACTERS = 'P', //!< \e[#P - The block of # characters at and to the right of the cursor are deleted; all characters to the right of it move left # columns, leaving behind blank space. The cursor position is unchanged. \e[P is equivalent to \e[1P.
 
 // Escape sequences for Set Graphics Rendition
-  ANSIESC_SETGRAPHICSMODE   = 'm', // \e[#;...;#m - Set Graphics Mode: Calls the graphics functions specified by the following values. These specified functions remain active until the next occurrence of this escape sequence. Graphics mode changes the colors and attributes of text (such as bold and underline) displayed on the screen. \e[m is equivalent to \e[0m.}
+  ANSIESC_SETGRAPHICSMODE   = 'm', //!< \e[#;...;#m - Set Graphics Mode: Calls the graphics functions specified by the following values. These specified functions remain active until the next occurrence of this escape sequence. Graphics mode changes the colors and attributes of text (such as bold and underline) displayed on the screen. \e[m is equivalent to \e[0m.}
 } eANSIESC_Sequence;
 
 
@@ -295,12 +289,8 @@ void ANSIESC_SetGraphicMode(ConsoleTx* pApi, uint8_t count, ...);
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 #endif /* ANSIESCAPELIB_H_ */

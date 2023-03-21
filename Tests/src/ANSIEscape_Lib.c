@@ -1,12 +1,10 @@
-/*******************************************************************************
-  File name:    ANSIEscape_Lib.c
-  Author:       FMA
-  Version:      1.0
-  Date (d/m/y): 08/12/2017
-  Description:  Some functions for ANSI Escape console communication
-
-  History :
-*******************************************************************************/
+/*!*****************************************************************************
+ * @file    ANSIEscape_Lib.c
+ * @author  Fabien 'Emandhal' MAILLY
+ * @version 1.0.0
+ * @date    08/12/2017
+ * @brief   Some functions for ANSI Escape console communication
+ ******************************************************************************/
 
 //-----------------------------------------------------------------------------
 #include "stdarg.h"
@@ -15,13 +13,9 @@
 #include "ANSIEscape_Lib.h"
 #include "string.h"
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 extern "C" {
 #endif
-/**INDENT-ON**/
-/// @endcond
 //-----------------------------------------------------------------------------
 
 
@@ -193,10 +187,6 @@ void ANSIESC_SetGraphicMode(ConsoleTx* pApi, uint8_t count, ...)
 
 
 //-----------------------------------------------------------------------------
-/// @cond 0
-/**INDENT-OFF**/
 #ifdef __cplusplus
 }
 #endif
-/**INDENT-ON**/
-/// @endcond
