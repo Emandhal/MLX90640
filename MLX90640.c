@@ -117,7 +117,10 @@ eERRORRESULT Init_MLX90640(MLX90640 *pComp, const MLX90640_Config *pConf)
   if ((pComp == NULL) || (pConf == NULL)) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
   if (pI2C->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
@@ -162,7 +165,10 @@ eERRORRESULT MLX90640_PollDevice(MLX90640 *pComp)
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
   if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2CInterface_Packet PacketDesc =
@@ -239,7 +245,10 @@ static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipA
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
   if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
@@ -277,7 +286,10 @@ eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
   if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig)) return ERR__BUSY;
@@ -325,7 +337,10 @@ eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, u
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
   if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2CInterface_Packet PacketDesc;
@@ -380,7 +395,10 @@ eERRORRESULT MLX90640_WriteData(MLX90640 *pComp, const uint16_t address, const u
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
   if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig)) return ERR__BUSY;
@@ -432,8 +450,11 @@ eERRORRESULT MLX90640_DumpEEPROM(MLX90640 *pComp, MLX90640_EEPROM *eepromDump)
   if ((pComp == NULL) || (eepromDump == NULL)) return ERR__PARAMETER_ERROR;
 #endif
   I2C_Interface* pI2C = GET_I2C_INTERFACE;
-#if defined(CHECK_NULL_PARAM) && defined(USE_DYNAMIC_INTERFACE)
-  if (pI2C->fnI2C_Init == NULL) return ERR__PARAMETER_ERROR;
+#if defined(CHECK_NULL_PARAM)
+# if defined(USE_DYNAMIC_INTERFACE)
+  if (pI2C == NULL) return ERR__PARAMETER_ERROR;
+# endif
+  if (pI2C->fnI2C_Transfer == NULL) return ERR__PARAMETER_ERROR;
 #endif
   eERRORRESULT Error;
 
