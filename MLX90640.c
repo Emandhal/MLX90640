@@ -39,7 +39,7 @@ extern "C" {
 static uint16_t __MLX90640_DetectByteOrder(void);
 
 // Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
-static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address, const bool usePolling, const eI2C_TransferType transferType);
+static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address, const bool useNonBlocking, const eI2C_TransferType transferType);
 
 // Calculate and store Vdd parameters on the MLX90640 device
 static void __MLX90640_ExtractVDDParameters(MLX90640 *pComp, MLX90640_EEPROM *eepromDump);
@@ -173,7 +173,7 @@ eERRORRESULT MLX90640_PollDevice(MLX90640 *pComp)
 #endif
   I2CInterface_Packet PacketDesc =
   {
-    I2C_MEMBER(Config.Value) I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER),
+    I2C_MEMBER(Config.Value) I2C_BLOCKING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER),
     I2C_MEMBER(ChipAddr    ) pComp->I2Caddress | I2C_READ_ORMASK,
     I2C_MEMBER(Start       ) true,
     I2C_MEMBER(pBuffer     ) NULL,
@@ -239,7 +239,7 @@ eERRORRESULT MLX90640_GetDeviceID(MLX90640 *pComp, eMLX90640_Devices* device, ui
 
 //**********************************************************************************************************************************************************
 // [STATIC] Write 2-bytes address the MLX90640 (DO NOT USE DIRECTLY)
-static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address, const bool usePolling, const eI2C_TransferType transferType)
+static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipAddr, const uint16_t address, const bool useNonBlocking, const eI2C_TransferType transferType)
 {
 #ifdef CHECK_NULL_PARAM
   if (pComp == NULL) return ERR__PARAMETER_ERROR;
@@ -259,7 +259,7 @@ static eERRORRESULT __MLX90640_WriteAddress(MLX90640 *pComp, const uint8_t chipA
   //--- Send the address ---
   I2CInterface_Packet PacketDesc =
   {
-    I2C_MEMBER(Config.Value) (usePolling ? I2C_USE_POLLING : I2C_NO_POLLING) | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(transferType),
+    I2C_MEMBER(Config.Value) (useNonBlocking ? I2C_USE_NON_BLOCKING : I2C_BLOCKING) | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(transferType),
     I2C_MEMBER(ChipAddr    ) chipAddr,
     I2C_MEMBER(Start       ) true,
     I2C_MEMBER(pBuffer     ) &Address[0],
@@ -303,7 +303,7 @@ eERRORRESULT MLX90640_ReadData(MLX90640 *pComp, const uint16_t address, uint16_t
   Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, false, I2C_WRITE_THEN_READ_FIRST_PART); // Start a read at address with the device
   if (Error == ERR_OK)                                                                               // If there is no error while writing address then
   {
-    PacketDesc.Config.Value = I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
+    PacketDesc.Config.Value = I2C_BLOCKING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
     PacketDesc.ChipAddr     = ChipAddrR;
     PacketDesc.pBuffer      = &DataBuf[0];
     PacketDesc.BufferSize   = sizeof(DataBuf);
@@ -352,7 +352,7 @@ eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, u
   if (MLX90640_IS_DMA_TRANSFER_IN_PROGRESS(pComp->InternalConfig))
   {
     const uint16_t CurrTransactionNumber = MLX90640_TRANSACTION_NUMBER_GET(pComp->InternalConfig);
-    PacketDesc.Config.Value = I2C_USE_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER) | I2C_TRANSACTION_NUMBER_SET(CurrTransactionNumber);
+    PacketDesc.Config.Value = I2C_USE_NON_BLOCKING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_SIMPLE_TRANSFER) | I2C_TRANSACTION_NUMBER_SET(CurrTransactionNumber);
     PacketDesc.ChipAddr     = ChipAddrR;
     PacketDesc.Start        = true;
     PacketDesc.pBuffer      = NULL;
@@ -368,7 +368,7 @@ eERRORRESULT MLX90640_ReadDataWithDMA(MLX90640 *pComp, const uint16_t address, u
   if (Error == ERR_OK)                                                                              // If there is no error while writing address then
   {
     const eI2C_EndianTransform EndianTransform = (MLX90640_IS_LITTLE_ENDIAN(pComp->InternalConfig) ? I2C_SWITCH_ENDIAN_16BITS : I2C_NO_ENDIAN_CHANGE);
-    PacketDesc.Config.Value = I2C_USE_POLLING | I2C_ENDIAN_TRANSFORM_SET(EndianTransform) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
+    PacketDesc.Config.Value = I2C_USE_NON_BLOCKING | I2C_ENDIAN_TRANSFORM_SET(EndianTransform) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_READ_SECOND_PART);
     PacketDesc.ChipAddr     = ChipAddrR;
     PacketDesc.pBuffer      = data;
     PacketDesc.BufferSize   = size;
@@ -412,7 +412,7 @@ eERRORRESULT MLX90640_WriteData(MLX90640 *pComp, const uint16_t address, const u
   Error = __MLX90640_WriteAddress(pComp, ChipAddrW, address, false, I2C_WRITE_THEN_WRITE_FIRST_PART); // Start a write at address with the device
   if (Error == ERR_OK)                                                                                // If there is no error while writing address then
   {
-    PacketDesc.Config.Value = I2C_NO_POLLING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_WRITE_SECOND_PART);
+    PacketDesc.Config.Value = I2C_BLOCKING | I2C_ENDIAN_TRANSFORM_SET(I2C_NO_ENDIAN_CHANGE) | I2C_TRANSFER_TYPE_SET(I2C_WRITE_THEN_WRITE_SECOND_PART);
     PacketDesc.ChipAddr     = ChipAddrW;
     PacketDesc.Start        = false;
     PacketDesc.pBuffer      = &DataBuf[0];
@@ -1420,129 +1420,125 @@ eERRORRESULT MLX90640_CorrectBadPixels(MLX90640 *pComp, MLX90640_FrameTo *result
 
 //**********************************************************************************************************************************************************
 //=============================================================================
-// Get Frame To by polling on the MLX90640 device (asynchronous)
+// Get Frame To with non blocking calls on the MLX90640 device (asynchronous)
 //=============================================================================
-eERRORRESULT MLX90640_PollFrameTo(MLX90640 *pComp, MLX90640_FramePolling *result)
+eERRORRESULT MLX90640_PollFrameTo(MLX90640 *pComp, MLX90640_FrameNonBlocking *result)
 {
   I2C_Conf TransferConfigResult;
   eERRORRESULT Error = ERR_OK;
   bool NoDMA = false;
-  eMLX90640_LastMeasured OtherSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame)); // Select other subframe
-  if ((result->PollingState[result->LastSubFrame] == MLX90640_POLLING_WAIT_FRAME_AVAILABLE)       // Current subframe wait for new frame available?
-   || (result->PollingState[result->LastSubFrame] == MLX90640_POLLING_LAST_IS_ERROR))             // or last is error?
+  eMLX90640_LastMeasured OtherSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));    // Select other subframe
+  if ((result->NonBlockingState[result->LastSubFrame] == MLX90640_NON_BLOCKING_WAIT_FRAME_AVAILABLE)       // Current subframe wait for new frame available?
+   || (result->NonBlockingState[result->LastSubFrame] == MLX90640_NON_BLOCKING_LAST_IS_ERROR))             // or last is error?
   {
     MLX90640_Status RegStatus;
     Error = MLX90640_ReadRegister(pComp, RegMLX90640_Status, &RegStatus.Status);
-    if (Error != ERR_OK) return Error;                                                            // If there is an error while calling MLX90640_ReadRegister() then return no frame available
-    if ((RegStatus.Status & MLX90640_NEW_DATA_AVAILABLE) > 0)                                     // A new frame is available?
+    if (Error != ERR_OK) return Error;                                                                     // If there is an error while calling MLX90640_ReadRegister() then return no frame available
+    if ((RegStatus.Status & MLX90640_NEW_DATA_AVAILABLE) > 0)                                              // A new frame is available?
     {
       //--- Read status register ---
-      result->LastSubFrame = MLX90640_LAST_SUBPAGE_GET(RegStatus.Status);                         // Get current subpage, i.e. this frame data subpage
-      result->SubFramesData[result->LastSubFrame].StatusReg.Status = RegStatus.Status;            // Save subframe status
+      result->LastSubFrame = MLX90640_LAST_SUBPAGE_GET(RegStatus.Status);                                  // Get current subpage, i.e. this frame data subpage
+      result->SubFramesData[result->LastSubFrame].StatusReg.Status = RegStatus.Status;                     // Save subframe status
       //--- Clear status register ---
       Error = MLX90640_WriteRegister(pComp, RegMLX90640_Status, MLX90640_CLEAR_DEVICE_STATUS);
-      if (Error != ERR_OK) return Error;                                                          // If there is an error while calling MLX90640_WriteRegister() then return the Error
+      if (Error != ERR_OK) return Error;                                                                   // If there is an error while calling MLX90640_WriteRegister() then return the Error
       //--- Start getting the subframe data (with DMA) ---
       Error = MLX90640_ReadDataWithDMA(pComp, RamMLX90640_StartAddress, &result->SubFramesData[result->LastSubFrame].Bytes[0], sizeof(MLX90640_FrameData) - sizeof(uint16_t), &TransferConfigResult);
-      if (Error == ERR__I2C_BUSY)                                                                 // DMA in progress
+      if (Error == ERR__I2C_BUSY)                                                                          // DMA in progress
       {
-        pComp->InternalConfig |= MLX90640_DMA_TRANSFER_IN_PROGRESS;                               // Flag DMA transfer in progress
-        result->PollingState[result->LastSubFrame] = MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS;
+        pComp->InternalConfig |= MLX90640_DMA_TRANSFER_IN_PROGRESS;                                        // Flag DMA transfer in progress
+        result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_DMA_TRANSFER_IN_PROGRESS;
         return ERR__BUSY;
       }
-      else if (Error == ERR_OK)                                                                   // No DMA used for the transfer?
-      {                                                                                           // Calculate data Frame To of the subframe directly
-        pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;                        // Set DMA no used by the driver
+      else if (Error == ERR_OK)                                                                            // No DMA used for the transfer?
+      {                                                                                                    // Calculate data Frame To of the subframe directly
+        pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;                                 // Set DMA no used by the driver
         if (I2C_ENDIAN_TRANSFORM_GET(TransferConfigResult.Value) != I2C_ENDIAN_RESULT_GET(TransferConfigResult.Value)) // No endian change during transfer?
-             result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_SWAP_DATA;        // Next swap data
-        else result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_CHECK_FRAME_DATA; // else check frame data
-        OtherSubFrame = result->LastSubFrame;                                                     // Select the last subframe to be processed
-        result->LastSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));     // Exchange the last sub frame
+             result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_NEXT_SWAP_DATA;        // Next swap data
+        else result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_NEXT_CHECK_FRAME_DATA; // else check frame data
+        OtherSubFrame = result->LastSubFrame;                                                              // Select the last subframe to be processed
+        result->LastSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));              // Exchange the last sub frame
         NoDMA = true;
       }
-      else                                                                                        // Error with the DMA
+      else                                                                                                 // Error with the DMA
       {
-        result->PollingState[result->LastSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;
+        result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_LAST_IS_ERROR;
         result->LastError[result->LastSubFrame] = Error;
-        return Error;                                                                             // If there is an error while calling MLX90640_ReadDataWithDMA() then return the Error
+        return Error;                                                                                      // If there is an error while calling MLX90640_ReadDataWithDMA() then return the Error
       }
     }
   }
 
   //--- Do subframe processings ---
-  if ((result->PollingState[result->LastSubFrame] == MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS)   // A DMA is in progress?
-   || (result->PollingState[result->LastSubFrame] == MLX90640_POLLING_LAST_IS_ERROR) || NoDMA)    // or an error while DMA transfer or No DMA flag?
+  if ((result->NonBlockingState[result->LastSubFrame] == MLX90640_NON_BLOCKING_DMA_TRANSFER_IN_PROGRESS)   // A DMA is in progress?
+   || (result->NonBlockingState[result->LastSubFrame] == MLX90640_NON_BLOCKING_LAST_IS_ERROR) || NoDMA)    // or an error while DMA transfer or No DMA flag?
   {
-    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_SWAP_DATA)
+    if (result->NonBlockingState[OtherSubFrame] == MLX90640_NON_BLOCKING_NEXT_SWAP_DATA)
     {
       MLX90640_BigEndianToLittleEndian(&result->SubFramesData[OtherSubFrame].Words[0], (sizeof(MLX90640_FrameData) / sizeof(uint16_t)) - 1); // Correct endianness
-      result->PollingState[OtherSubFrame] = MLX90640_POLLING_NEXT_CHECK_FRAME_DATA;               // Next step is to check frame data
-      if (NoDMA == false) return ERR__BUSY;                                                       // Process still busy, frame not yet available. If no DMA, continue
+      result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_NEXT_CHECK_FRAME_DATA;               // Next step is to check frame data
+      if (NoDMA == false) return ERR__BUSY;                                                                // Process still busy, frame not yet available. If no DMA, continue
     }
-    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_CHECK_FRAME_DATA)
+    if (result->NonBlockingState[OtherSubFrame] == MLX90640_NON_BLOCKING_NEXT_CHECK_FRAME_DATA)
     {
-      Error = __MLX90640_CheckFrameData(&result->SubFramesData[OtherSubFrame]);                   // Check frame data consistency
-      if (Error != ERR_OK)                                                                        // An error occurred?
+      Error = __MLX90640_CheckFrameData(&result->SubFramesData[OtherSubFrame]);                            // Check frame data consistency
+      if (Error != ERR_OK)                                                                                 // An error occurred?
       {
-        result->PollingState[OtherSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;                     // Set polling state in error
-        result->LastError[OtherSubFrame]    = Error;                                              // Set last error
+        result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_LAST_IS_ERROR;                     // Set non blocking state in error
+        result->LastError[OtherSubFrame]    = Error;                                                       // Set last error
         return Error;
       }
-      result->PollingState[OtherSubFrame] = MLX90640_POLLING_NEXT_CALCULATE_FRAME_TO;             // Next step is to calculate Frame To
-      if (NoDMA == false) return ERR__BUSY;                                                       // Process still busy, frame not yet available. If no DMA, continue
+      result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_NEXT_CALCULATE_FRAME_TO;             // Next step is to calculate Frame To
+      if (NoDMA == false) return ERR__BUSY;                                                                // Process still busy, frame not yet available. If no DMA, continue
     }
-    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_CALCULATE_FRAME_TO)
+    if (result->NonBlockingState[OtherSubFrame] == MLX90640_NON_BLOCKING_NEXT_CALCULATE_FRAME_TO)
     {
       Error = MLX90640_CalculateTo(pComp, &result->SubFramesData[OtherSubFrame], result->Emissivity, result->Tr, &result->Result); // Calculate Frame To
-      if (Error != ERR_OK)                                                                        // An error occured?
+      if (Error != ERR_OK)                                                                                 // An error occured?
       {
-        result->PollingState[OtherSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;                     // Set polling state in error
-        result->LastError[OtherSubFrame]    = Error;                                              // Set last error
+        result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_LAST_IS_ERROR;                     // Set non blocking state in error
+        result->LastError[OtherSubFrame]    = Error;                                                       // Set last error
         return Error;
       }
-      result->PollingState[OtherSubFrame] = MLX90640_POLLING_NEXT_CORRECT_BAD_PIXELS;             // Next step is to correct bad pixels
-      if (NoDMA == false) return ERR__BUSY;                                                       // Process still busy, frame not yet available. If no DMA, continue
+      result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_NEXT_CORRECT_BAD_PIXELS;             // Next step is to correct bad pixels
+      if (NoDMA == false) return ERR__BUSY;                                                                // Process still busy, frame not yet available. If no DMA, continue
     }
-    if (result->PollingState[OtherSubFrame] == MLX90640_POLLING_NEXT_CORRECT_BAD_PIXELS)
+    if (result->NonBlockingState[OtherSubFrame] == MLX90640_NON_BLOCKING_NEXT_CORRECT_BAD_PIXELS)
     {
-      Error = MLX90640_CorrectBadPixels(pComp, &result->Result);                                  // Correct bad pixels
-      if (Error != ERR_OK)                                                                        // An error occurred?
+      Error = MLX90640_CorrectBadPixels(pComp, &result->Result);                                           // Correct bad pixels
+      if (Error != ERR_OK)                                                                                 // An error occurred?
       {
-        result->PollingState[OtherSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;                     // Set polling state in error
-        result->LastError[OtherSubFrame]    = Error;                                              // Set last error
+        result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_LAST_IS_ERROR;                     // Set non blocking state in error
+        result->LastError[OtherSubFrame]    = Error;                                                       // Set last error
         return Error;
       }
-      result->PollingState[OtherSubFrame] = MLX90640_POLLING_WAIT_FRAME_AVAILABLE;                // Next step is to wait for a new subframe data available
-      return ERR_OK;                                                                              // Subframe finished, the user can do something with the Result
+      result->NonBlockingState[OtherSubFrame] = MLX90640_NON_BLOCKING_WAIT_FRAME_AVAILABLE;                // Next step is to wait for a new subframe data available
+      return ERR_OK;                                                                                       // Subframe finished, the user can do something with the Result
     }
   }
 
   //--- Check DMA transfer status ---
-  if ((result->PollingState[result->LastSubFrame] == MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS)   // DMA transfer in progress?
-   && ((result->PollingState[OtherSubFrame] == MLX90640_POLLING_WAIT_FRAME_AVAILABLE)             // and (the other frame have finish its image process?
-    || (result->PollingState[OtherSubFrame] == MLX90640_POLLING_LAST_IS_ERROR)))                  //      or the other frame have an error while image process)?
+  if ((result->NonBlockingState[result->LastSubFrame] == MLX90640_NON_BLOCKING_DMA_TRANSFER_IN_PROGRESS)   // DMA transfer in progress?
+   && ((result->NonBlockingState[OtherSubFrame] == MLX90640_NON_BLOCKING_WAIT_FRAME_AVAILABLE)             // and (the other frame have finish its image process?
+    || (result->NonBlockingState[OtherSubFrame] == MLX90640_NON_BLOCKING_LAST_IS_ERROR)))                  //      or the other frame have an error while image process)?
   {
     Error = MLX90640_ReadDataWithDMA(pComp, RamMLX90640_StartAddress, &result->SubFramesData[result->LastSubFrame].Bytes[0], sizeof(MLX90640_FrameData) - sizeof(uint16_t), &TransferConfigResult);
-    if (Error == ERR_OK)                                                                          // DMA transfer finished?
+    if (Error == ERR_OK)                                                                                   // DMA transfer finished?
     {
-      pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;                          // Set DMA no used by the driver
+      pComp->InternalConfig &= MLX90640_NO_DMA_TRANSFER_IN_PROGRESS_SET;                                   // Set DMA no used by the driver
       if (I2C_ENDIAN_TRANSFORM_GET(TransferConfigResult.Value) != I2C_ENDIAN_RESULT_GET(TransferConfigResult.Value)) // No endian change during transfer?
-           result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_SWAP_DATA;          // Next swap data
-      else result->PollingState[result->LastSubFrame] = MLX90640_POLLING_NEXT_CHECK_FRAME_DATA;   // Else check frame data
-      result->LastSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));       // Exchange the last sub frame
+           result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_NEXT_SWAP_DATA;          // Next swap data
+      else result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_NEXT_CHECK_FRAME_DATA;   // Else check frame data
+      result->LastSubFrame = (eMLX90640_LastMeasured)(1 - (uint8_t)(result->LastSubFrame));                // Exchange the last sub frame
     }
     else if (Error != ERR__I2C_BUSY)
     {
-      result->PollingState[result->LastSubFrame] = MLX90640_POLLING_LAST_IS_ERROR;
+      result->NonBlockingState[result->LastSubFrame] = MLX90640_NON_BLOCKING_LAST_IS_ERROR;
       result->LastError[result->LastSubFrame] = Error;
     }
   }
   return Error;
 }
-
-
-
-
 
 //-----------------------------------------------------------------------------
 #ifdef __cplusplus

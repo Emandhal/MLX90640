@@ -31,7 +31,7 @@
  *****************************************************************************/
 
 /* Revision history:
- * 1.1.0    I2C interface rework for I2C DMA use and polling
+ * 1.1.0    I2C interface rework for I2C DMA use and non blocking
  * 1.0.2    Correct resolution error in delta Vdd calculus
  * 1.0.1    Add minimum and maximum value of To for each subframe in MLX90640_FrameTo
  * 1.0.0    Release version
@@ -76,11 +76,13 @@
 
 
 
+//********************************************************************************************************************
+// MLX90640 limits definitions
+//********************************************************************************************************************
+
 // Limits definitions
 #define MLX90640_I2CCLOCK_FMp_MAX  ( 1000000u ) //!< Max I2C clock frequency in FM+ mode (Fast-mode plus)
 #define MLX90640_I2CCLOCK_FM_MAX   (  400000u ) //!< Max I2C clock frequency in FM mode (Fast-mode)
-
-
 
 // Device definitions
 #define MLX90640_CHIPADDRESS_DEFAULT  ( 0x33 << 1 ) //!< Base chip address (Default, can be changed)
@@ -1019,29 +1021,29 @@ typedef struct MLX90640_FrameTo
 
 
 
-//! Polling state enum
+//! Non blocking state enum
 typedef enum
 {
-  MLX90640_POLLING_WAIT_FRAME_AVAILABLE,     //!< Wait for frame available flag
-  MLX90640_POLLING_DMA_TRANSFER_IN_PROGRESS, //!< DMA transfer is in progress to obtain subframe data
-  MLX90640_POLLING_NEXT_SWAP_DATA,           //!< Next step is swapping data (Big-Endian to Little-Endian)
-  MLX90640_POLLING_NEXT_CHECK_FRAME_DATA,    //!< Next step is to check frame data
-  MLX90640_POLLING_NEXT_CALCULATE_FRAME_TO,  //!< Next step is calculate subframe To and add it to FrameTo
-  MLX90640_POLLING_NEXT_CORRECT_BAD_PIXELS,  //!< Next step is correct bad pixels
-  MLX90640_POLLING_LAST_IS_ERROR,            //!< Last polling returns an error
-} eMLX90640_PollingState;
+  MLX90640_NON_BLOCKING_WAIT_FRAME_AVAILABLE,     //!< Wait for frame available flag
+  MLX90640_NON_BLOCKING_DMA_TRANSFER_IN_PROGRESS, //!< DMA transfer is in progress to obtain subframe data
+  MLX90640_NON_BLOCKING_NEXT_SWAP_DATA,           //!< Next step is swapping data (Big-Endian to Little-Endian)
+  MLX90640_NON_BLOCKING_NEXT_CHECK_FRAME_DATA,    //!< Next step is to check frame data
+  MLX90640_NON_BLOCKING_NEXT_CALCULATE_FRAME_TO,  //!< Next step is calculate subframe To and add it to FrameTo
+  MLX90640_NON_BLOCKING_NEXT_CORRECT_BAD_PIXELS,  //!< Next step is correct bad pixels
+  MLX90640_NON_BLOCKING_LAST_IS_ERROR,            //!< Last non blocking returns an error
+} eMLX90640_NonBlockingState;
 
-//! Frame polling structure
-typedef struct MLX90640_FramePolling
+//! Frame non blocking structure
+typedef struct MLX90640_FrameNonBlocking
 {
-  MLX90640_FrameData SubFramesData[2];    //!< Subframes data. One is retrieved from device when the other will be calculated)
-  MLX90640_FrameTo Result;                //!< This is the result of the frame To
-  float Emissivity;                       //!< Emissivity of for the frame To
-  float Tr;                               //!< IR signal reflected from the object (the source of this signal is surrounding environment of the sensor), if unknown set to Ta-8
-  eMLX90640_PollingState PollingState[2]; //!< This is the state of the polling
-  eMLX90640_LastMeasured LastSubFrame;    //!< This is the last measured subframe (the last calculated Frame To by the polling)
-  eERRORRESULT LastError[2];              //!< Last error of the frame polling
-} MLX90640_FramePolling;
+  MLX90640_FrameData SubFramesData[2];            //!< Subframes data. One is retrieved from device when the other will be calculated)
+  MLX90640_FrameTo Result;                        //!< This is the result of the frame To
+  float Emissivity;                               //!< Emissivity of for the frame To
+  float Tr;                                       //!< IR signal reflected from the object (the source of this signal is surrounding environment of the sensor), if unknown set to Ta-8
+  eMLX90640_NonBlockingState NonBlockingState[2]; //!< This is the state of the non blocking
+  eMLX90640_LastMeasured LastSubFrame;            //!< This is the last measured subframe (the last calculated Frame To by the non blocking)
+  eERRORRESULT LastError[2];                      //!< Last error of the frame non blocking
+} MLX90640_FrameNonBlocking;
 
 //-----------------------------------------------------------------------------
 
@@ -1060,7 +1062,7 @@ typedef struct MLX90640_FramePolling
 #define MLX90640_ENDIANNESS_Pos           ( 1 )
 #define MLX90640_LITTLE_ENDIAN            (0u << MLX90640_ENDIANNESS_Pos) // Select the little endianness
 #define MLX90640_BIG_ENDIAN               (1u << MLX90640_ENDIANNESS_Pos) // Select the big endianness
-#define MLX90640_IS_LITTLE_ENDIAN(value)  (((value) & (1u << MLX90640_ENDIANNESS_Pos)) == 0) // Little endian CPU detected ?
+#define MLX90640_IS_LITTLE_ENDIAN(value)  (((value) & (1u << MLX90640_ENDIANNESS_Pos)) == 0) // Little endian CPU detected?
 
 #define MLX90640_DMA_TRANSFER_IN_PROGRESS_Pos        ( 2 )
 #define MLX90640_DMA_TRANSFER_IN_PROGRESS            ( 1u << MLX90640_DMA_TRANSFER_IN_PROGRESS_Pos ) // DMA transfer in progress
@@ -1070,7 +1072,7 @@ typedef struct MLX90640_FramePolling
 #define MLX90640_TRANSACTION_NUMBER_Pos           ( 3 )
 #define MLX90640_TRANSACTION_NUMBER_Mask          ( 0x3F << MLX90640_TRANSACTION_NUMBER_Pos )
 #define MLX90640_TRANSACTION_NUMBER_SET(value)    (((uint16_t)(value) << MLX90640_TRANSACTION_NUMBER_Pos) & MLX90640_TRANSACTION_NUMBER_Mask) // Set the transaction number to internal config
-#define MLX90640_TRANSACTION_NUMBER_GET(value)    (((uint16_t)(value) & MLX90640_TRANSACTION_NUMBER_Mask) >> MLX90640_TRANSACTION_NUMBER_Pos) // Get the transaction number to internal config
+#define MLX90640_TRANSACTION_NUMBER_GET(value)    (((uint16_t)(value) & MLX90640_TRANSACTION_NUMBER_Mask) >> MLX90640_TRANSACTION_NUMBER_Pos) // Get the transaction number of internal config
 #define MLX90640_TRANSACTION_NUMBER_CLEAR(value)  value &= ~MLX90640_TRANSACTION_NUMBER_Mask // Clears the transaction number of internal config
 
 //-----------------------------------------------------------------------------
@@ -1357,16 +1359,16 @@ eERRORRESULT MLX90640_CorrectBadPixels(MLX90640 *pComp, MLX90640_FrameTo *result
 
 
 
-/*! @brief Get Frame To by polling on the MLX90640 device (asynchronous)
+/*! @brief Get Frame To with non blocking calls on the MLX90640 device (asynchronous)
  *
  * This function, when called regularly, process a subframe while the other is retrieved by DMA.
  * In case of no DMA, the function retrieves the subframe and process it directly
- * @warning This function has a working buffer of 6,5kiB (MLX90640_FramePolling)
+ * @warning This function has a working buffer of 6,5kiB (MLX90640_FrameNon blocking)
  * @param[in] *pComp Is the pointed structure of the device to be used
  * @param[in,out] *result Contains either the working frame data buffers and the result Frame To
  * @return Returns an #eERRORRESULT value enum
  */
-eERRORRESULT MLX90640_PollFrameTo(MLX90640 *pComp, MLX90640_FramePolling *result);
+eERRORRESULT MLX90640_NonBlockFrameTo(MLX90640 *pComp, MLX90640_FrameNonBlocking *result);
 
 //********************************************************************************************************************
 
